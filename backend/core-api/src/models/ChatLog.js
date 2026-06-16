@@ -13,7 +13,7 @@ const chatLogSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     scanId: { type: mongoose.Schema.Types.ObjectId, ref: 'Scan', default: null },
-    language: { type: String, enum: ['en', 'si'], default: 'en' },
+    language: { type: String, enum: ['en', 'si', 'ta', 'ar', 'fr', 'ja'], default: 'en' },
     messages: [messageSchema],
   },
   { collection: 'chatLogs' }
