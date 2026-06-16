@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix backend/core-api\" \"npm run dev --prefix frontend\"",
     "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm start --prefix backend/core-api\" \"npm run preview --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
     "install:all": "npm install --prefix backend/core-api && npm install --prefix frontend"
   },
   "devDependencies": {
