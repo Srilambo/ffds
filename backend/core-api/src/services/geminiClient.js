@@ -4,10 +4,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const MODEL_NAME = 'gemini-2.0-flash';
 
 function buildScanPrompt({ foodType, label, confidence, gasReadings, language, role }) {
-  const langInstruction =
-    language === 'si'
-      ? 'Respond entirely in Sinhala (සිංහල).'
-      : 'Respond in English.';
+  let langInstruction = 'Respond in English.';
+  if (language === 'si') {
+    langInstruction = 'Respond entirely in Sinhala (සිංහල).';
+  } else if (language === 'ta') {
+    langInstruction = 'Respond entirely in Tamil (தமிழ்).';
+  }
 
   const roleContext =
     role === 'manager'
@@ -70,10 +72,12 @@ async function answerFollowUp({ scanContext, chatHistory, question, language }) 
   try {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-    const langInstruction =
-      language === 'si'
-        ? 'Respond entirely in Sinhala (සිංහල).'
-        : 'Respond in English.';
+    let langInstruction = 'Respond in English.';
+    if (language === 'si') {
+      langInstruction = 'Respond entirely in Sinhala (සිංහල).';
+    } else if (language === 'ta') {
+      langInstruction = 'Respond entirely in Tamil (தமிழ்).';
+    }
 
     const systemPrompt = `You are a food freshness advisor. Context from the original scan:
 - Food: ${scanContext.foodType}

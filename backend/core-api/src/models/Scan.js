@@ -12,12 +12,17 @@ const gasReadingsSchema = new mongoose.Schema(
 const scanSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    businessId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    farmId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    batchId: { type: mongoose.Schema.Types.ObjectId, default: null },
     imageUrl: { type: String, required: true },
     foodType: { type: String, required: true },
     label: { type: String, enum: ['Fresh', 'Borderline', 'Spoiled'], required: true },
     confidence: { type: Number, required: true, min: 0, max: 100 },
     gasReadings: { type: gasReadingsSchema, required: true },
     chatbotExplanation: { type: String, required: true },
+    chatbotResponse: { type: String }, // for new spec compatibility
+    language: { type: String, enum: ['en', 'si', 'ta', 'ar', 'fr', 'ja'], default: 'en' },
     createdAt: { type: Date, default: Date.now },
   },
   { collection: 'scans' }

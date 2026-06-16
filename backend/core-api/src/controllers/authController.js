@@ -14,6 +14,9 @@ function signToken(user) {
       role: user.role,
       language: user.language,
       teamId: user.teamId ? user.teamId.toString() : null,
+      businessId: user.businessId ? user.businessId.toString() : null,
+      farmId: user.farmId ? user.farmId.toString() : null,
+      familyId: user.familyId ? user.familyId.toString() : null,
     },
     JWT_SECRET,
     { expiresIn: '7d' }
@@ -28,6 +31,11 @@ function sanitizeUser(user) {
     role: user.role,
     language: user.language,
     teamId: user.teamId,
+    businessId: user.businessId,
+    farmId: user.farmId,
+    familyId: user.familyId,
+    isActive: user.isActive,
+    lastLogin: user.lastLogin,
   };
 }
 
@@ -38,11 +46,11 @@ async function register(req, res, next) {
     if (!name || !email || !password || !role || !language) {
       return res.status(400).json({ error: 'All fields are required' });
     }
-    if (!['consumer', 'manager'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be consumer or manager' });
+    if (!['consumer', 'manager', 'farmer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be consumer, manager, farmer, or admin' });
     }
-    if (!['en', 'si'].includes(language)) {
-      return res.status(400).json({ error: 'Language must be en or si' });
+    if (!['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
+      return res.status(400).json({ error: 'Language must be en, si, ta, ar, fr, or ja' });
     }
 
     const existing = await User.findOne({ email });
@@ -51,7 +59,14 @@ async function register(req, res, next) {
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const teamId = role === 'manager' ? new mongoose.Types.ObjectId() : null;
+    
+    // Generate IDs based on role
+    const businessId = role === 'manager' ? new mongoose.Types.ObjectId() : null;
+    const farmId = role === 'farmer' ? new mongoose.Types.ObjectId() : null;
+    const familyId = role === 'consumer' ? new mongoose.Types.ObjectId() : null;
+    
+    // For legacy compat with manager team actions
+    const teamId = businessId;
 
     const user = await User.create({
       name,
@@ -60,6 +75,11 @@ async function register(req, res, next) {
       role,
       language,
       teamId,
+      businessId,
+      farmId,
+      familyId,
+      isActive: true,
+      lastLogin: new Date(),
     });
 
     const token = signToken(user);
@@ -81,10 +101,17 @@ async function login(req, res, next) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!user.isActive) {
+      return res.status(403).json({ error: 'Account is suspended' });
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    user.lastLogin = new Date();
+    await user.save();
 
     const token = signToken(user);
     return res.status(200).json({ token, user: sanitizeUser(user) });
