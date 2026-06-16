@@ -1,0 +1,14 @@
+{
+  "name": "ffds",
+  "version": "1.0.0",
+  "description": "Food Freshness Detection System — root workspace runner",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix backend/core-api\" \"npm run dev --prefix frontend\"",
+    "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm start --prefix backend/core-api\" \"npm run preview --prefix frontend\"",
+    "install:all": "npm install --prefix backend/core-api && npm install --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
