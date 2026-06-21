@@ -20,13 +20,17 @@ const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',') 
   : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177'];
 
+// Allow all origins in production if CORS_ORIGIN is set to '*'
+const allowAllOrigins = allowedOrigins.includes('*');
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    if (allowAllOrigins || allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     }
+    console.error('CORS blocked origin:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true
