@@ -16,7 +16,7 @@ async function connectDb() {
   
   // Set DNS servers to resolve MongoDB Atlas SRV records in serverless environments
   const dns = require('dns');
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
+  // dns.setServers(['8.8.8.8', '8.8.4.4']);
   
   // Configure mongoose for serverless environment
   mongoose.set('strictQuery', false);
@@ -25,7 +25,6 @@ async function connectDb() {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
     bufferCommands: false,
-    bufferMaxEntries: 0,
     maxPoolSize: 10,
     minPoolSize: 1,
   });
