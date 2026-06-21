@@ -6,6 +6,11 @@ const User = require('../models/User');
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 const SALT_ROUNDS = 10;
 
+// Log JWT_SECRET status for debugging
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET environment variable not set. Using fallback "test-secret". This is insecure for production!');
+}
+
 function signToken(user) {
   return jwt.sign(
     {
