@@ -7,7 +7,21 @@
     "dev": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm run dev --prefix backend/core-api\" \"npm run dev --prefix frontend\"",
     "start": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"npm start --prefix backend/core-api\" \"npm run preview --prefix frontend\"",
     "build": "npm run build --prefix frontend",
-    "install:all": "npm install --prefix backend/core-api && npm install --prefix frontend"
+    "install:all": "npm install --prefix backend/core-api && npm install --prefix frontend",
+    "postinstall": "npm run install:all"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "form-data": "^4.0.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.3",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
