@@ -95,13 +95,20 @@ After setting environment variables:
 
 ### MongoDB Connection Failed
 
-**Cause:** `MONGODB_URI` not set or incorrect.
+**Cause:** `MONGODB_URI` not set, incorrect, or MongoDB Atlas IP whitelist issues.
 
 **Solution:**
 1. Verify `MONGODB_URI` is set in Vercel environment variables
-2. Ensure MongoDB Atlas allows access from Vercel's IP ranges
+2. Ensure MongoDB Atlas allows access from Vercel's IP ranges (0.0.0.0/0 for serverless)
 3. Check that the database user has correct permissions
-4. Redeploy after setting the variable
+4. Ensure connection string includes `retryWrites=true&w=majority`
+5. Redeploy after setting the variable
+
+**MongoDB Atlas IP Whitelist for Vercel:**
+Since Vercel uses dynamic IP addresses, you should:
+- Go to MongoDB Atlas → Network Access
+- Add IP address: `0.0.0.0/0` (allows all IPs - less secure but required for serverless)
+- Or use VPC peering if you have a paid MongoDB Atlas plan
 
 ## Testing
 
