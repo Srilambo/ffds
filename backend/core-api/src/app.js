@@ -36,6 +36,13 @@ app.use(cors({
   credentials: true
 }));
 
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    req.url = req.url.slice(4) || '/';
+  }
+  next();
+});
+
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

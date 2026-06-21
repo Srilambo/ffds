@@ -13,7 +13,7 @@ async function connectDb() {
   
   // Set DNS public servers to Google to resolve MongoDB Atlas SRV records in serverless env
   const dns = require('dns');
-  dns.setServers(['8.8.8.8', '8.8.4.4']);
+  // dns.setServers(['8.8.8.8', '8.8.4.4']);
   
   await mongoose.connect(MONGODB_URI);
   isConnected = true;
