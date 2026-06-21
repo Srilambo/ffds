@@ -1,5 +1,5 @@
 const app = require('../backend/core-api/src/app');
-const mongoose = require('mongoose');
+const mongoose = require('../backend/core-api/node_modules/mongoose');
 
 async function connectDb() {
   if (mongoose.connection.readyState === 1) {
