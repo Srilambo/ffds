@@ -1,10 +1,8 @@
 const app = require('../src/app');
 const mongoose = require('mongoose');
 
-let isConnected = false;
-
 async function connectDb() {
-  if (isConnected) return;
+  if (mongoose.connection.readyState === 1) return;
   
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
@@ -16,7 +14,6 @@ async function connectDb() {
   // dns.setServers(['8.8.8.8', '8.8.4.4']);
   
   await mongoose.connect(MONGODB_URI);
-  isConnected = true;
   console.log('MongoDB Atlas connected (Serverless)');
 }
 

@@ -1,10 +1,8 @@
 const app = require('../backend/core-api/src/app');
 const mongoose = require('mongoose');
 
-let isConnected = false;
-
 async function connectDb() {
-  if (isConnected) {
+  if (mongoose.connection.readyState === 1) {
     console.log('Using existing MongoDB connection');
     return;
   }
@@ -29,19 +27,7 @@ async function connectDb() {
     minPoolSize: 1,
   });
   
-  isConnected = true;
   console.log('MongoDB Atlas connected (Serverless Root)');
-  
-  // Handle connection events
-  mongoose.connection.on('error', (err) => {
-    console.error('MongoDB connection error:', err);
-    isConnected = false;
-  });
-  
-  mongoose.connection.on('disconnected', () => {
-    console.log('MongoDB disconnected');
-    isConnected = false;
-  });
 }
 
 module.exports = async (req, res) => {
