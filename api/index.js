@@ -4,7 +4,10 @@ const mongoose = require('mongoose');
 let isConnected = false;
 
 async function connectDb() {
-  if (isConnected) return;
+  if (isConnected) {
+    console.log('Using existing MongoDB connection');
+    return;
+  }
   
   const MONGODB_URI = process.env.MONGODB_URI;
   if (!MONGODB_URI) {
@@ -15,9 +18,31 @@ async function connectDb() {
   const dns = require('dns');
   dns.setServers(['8.8.8.8', '8.8.4.4']);
   
-  await mongoose.connect(MONGODB_URI);
+  // Configure mongoose for serverless environment
+  mongoose.set('strictQuery', false);
+  
+  await mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+    bufferMaxEntries: 0,
+    maxPoolSize: 10,
+    minPoolSize: 1,
+  });
+  
   isConnected = true;
   console.log('MongoDB Atlas connected (Serverless Root)');
+  
+  // Handle connection events
+  mongoose.connection.on('error', (err) => {
+    console.error('MongoDB connection error:', err);
+    isConnected = false;
+  });
+  
+  mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected');
+    isConnected = false;
+  });
 }
 
 module.exports = async (req, res) => {
