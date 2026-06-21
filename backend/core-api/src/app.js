@@ -39,13 +39,13 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/scan', scanRoutes);
-app.use('/api/scans', scansRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/manager', managerRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/auth', authRoutes);
+app.use('/scan', scanRoutes);
+app.use('/scans', scansRoutes);
+app.use('/chat', chatRoutes);
+app.use('/inventory', inventoryRoutes);
+app.use('/manager', managerRoutes);
+app.use('/admin', adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
