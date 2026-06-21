@@ -2,8 +2,6 @@ const request = require('supertest');
 const app = require('../src/app');
 
 describe('Auth API', () => {
-  let token;
-
   it('registers a user and returns a JWT', async () => {
     const res = await request(app)
       .post('/api/auth/register')
@@ -19,10 +17,21 @@ describe('Auth API', () => {
     expect(res.body.token).toBeDefined();
     expect(res.body.user.email).toBe('test@example.com');
     expect(res.body.user.passwordHash).toBeUndefined();
-    token = res.body.token;
   });
 
   it('returns 409 for duplicate email', async () => {
+    // Create first user
+    await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123',
+        role: 'consumer',
+        language: 'en',
+      });
+
+    // Attempt duplicate
     const res = await request(app)
       .post('/api/auth/register')
       .send({
@@ -42,23 +51,44 @@ describe('Auth API', () => {
         name: 'Bad',
         email: 'bad@example.com',
         password: 'pass',
-        role: 'admin',
+        role: 'invalid_role',
         language: 'en',
       });
     expect(res.status).toBe(400);
   });
 
   it('login returns JWT for correct credentials', async () => {
+    // Register first
+    await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123',
+        role: 'consumer',
+        language: 'en',
+      });
+
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'test@example.com', password: 'password123' });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
-    token = res.body.token;
   });
 
   it('login returns 401 for wrong password', async () => {
+    // Register first
+    await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123',
+        role: 'consumer',
+        language: 'en',
+      });
+
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'test@example.com', password: 'wrong' });
@@ -67,9 +97,21 @@ describe('Auth API', () => {
   });
 
   it('/me returns profile with valid token', async () => {
+    // Register first to get a fresh token
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123',
+        role: 'consumer',
+        language: 'en',
+      });
+    const userToken = reg.body.token;
+
     const res = await request(app)
       .get('/api/auth/me')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${userToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.email).toBe('test@example.com');
