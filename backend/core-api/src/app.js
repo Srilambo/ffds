@@ -23,18 +23,26 @@ const allowedOrigins = process.env.CORS_ORIGIN
 // Allow all origins in production if CORS_ORIGIN is set to '*'
 const allowAllOrigins = allowedOrigins.includes('*');
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowAllOrigins || allowedOrigins.indexOf(origin) !== -1) {
-      return callback(null, true);
-    }
-    console.error('CORS blocked origin:', origin);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-}));
+const corsOptionsDelegate = (req, callback) => {
+  const origin = req.header('Origin');
+  const host = req.header('Host');
+  
+  let isSameOrigin = false;
+  if (origin && host) {
+    try {
+      isSameOrigin = new URL(origin).host === host;
+    } catch (e) {}
+  }
+  
+  const isAllowed = !origin || isSameOrigin || allowAllOrigins || allowedOrigins.indexOf(origin) !== -1;
+  
+  callback(null, {
+    origin: isAllowed ? origin : false,
+    credentials: true
+  });
+};
+
+app.use(cors(corsOptionsDelegate));
 
 app.use((req, res, next) => {
   if (req.url.startsWith('/api')) {
