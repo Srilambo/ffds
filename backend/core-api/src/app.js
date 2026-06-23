@@ -53,6 +53,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/assets/images', express.static(path.join(__dirname, '../assets/images')));
 
 app.use('/auth', authRoutes);
 app.use('/scan', scanRoutes);
