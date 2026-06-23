@@ -58,7 +58,7 @@ def build_model(num_classes: int = 3) -> Model:
     return model
 
 
-def create_generators(data_dir: str):
+def create_generators(data_dir: str, batch_size: int = BATCH_SIZE):
     """Build train/val/test generators with augmentation on training set."""
     train_datagen = ImageDataGenerator(
         rescale=1.0 / 255,
@@ -73,7 +73,7 @@ def create_generators(data_dir: str):
     train_gen = train_datagen.flow_from_directory(
         data_dir,
         target_size=IMG_SIZE,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         class_mode="categorical",
         classes=CLASS_NAMES,
         subset="training",
@@ -83,7 +83,7 @@ def create_generators(data_dir: str):
     val_gen = train_datagen.flow_from_directory(
         data_dir,
         target_size=IMG_SIZE,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         class_mode="categorical",
         classes=CLASS_NAMES,
         subset="validation",
@@ -93,7 +93,7 @@ def create_generators(data_dir: str):
     test_gen = test_datagen.flow_from_directory(
         data_dir,
         target_size=IMG_SIZE,
-        batch_size=BATCH_SIZE,
+        batch_size=batch_size,
         class_mode="categorical",
         classes=CLASS_NAMES,
         shuffle=False,
@@ -113,10 +113,31 @@ def main():
         default="./model/ffds_mobilenetv2.h5",
         help="Path to save the best model",
     )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=EPOCHS,
+        help="Number of epochs to train",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=BATCH_SIZE,
+        help="Batch size for training",
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=PATIENCE,
+        help="Early stopping patience",
+    )
     args = parser.parse_args()
 
     data_dir = args.data_dir
     output_path = args.output
+    epochs = args.epochs
+    batch_size = args.batch_size
+    patience = args.patience
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     if not Path(data_dir).exists():
@@ -125,7 +146,7 @@ def main():
         return
 
     print("Loading datasets...")
-    train_gen, val_gen, test_gen = create_generators(data_dir)
+    train_gen, val_gen, test_gen = create_generators(data_dir, batch_size=batch_size)
 
     print("Building model...")
     model = build_model(num_classes=len(CLASS_NAMES))
@@ -133,7 +154,7 @@ def main():
     callbacks = [
         EarlyStopping(
             monitor="val_accuracy",
-            patience=PATIENCE,
+            patience=patience,
             restore_best_weights=True,
             verbose=1,
         ),
@@ -148,7 +169,7 @@ def main():
     print("Training...")
     model.fit(
         train_gen,
-        epochs=EPOCHS,
+        epochs=epochs,
         validation_data=val_gen,
         callbacks=callbacks,
     )

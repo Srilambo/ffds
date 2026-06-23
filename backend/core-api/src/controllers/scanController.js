@@ -5,17 +5,17 @@ const cnnClient = require('../services/cnnClient');
 const { generateGasReadings } = require('../services/gasSim');
 const geminiClient = require('../services/geminiClient');
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+const IMAGES_DIR = path.join(__dirname, '../../assets/images');
 
 function saveImage(buffer, mimetype) {
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(IMAGES_DIR)) {
+    fs.mkdirSync(IMAGES_DIR, { recursive: true });
   }
   const ext = mimetype === 'image/png' ? '.png' : '.jpg';
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const filepath = path.join(UPLOAD_DIR, filename);
+  const filepath = path.join(IMAGES_DIR, filename);
   fs.writeFileSync(filepath, buffer);
-  return `/uploads/${filename}`;
+  return `/assets/images/${filename}`;
 }
 
 async function createScan(req, res, next) {

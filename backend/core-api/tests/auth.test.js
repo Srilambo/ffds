@@ -121,4 +121,39 @@ describe('Auth API', () => {
     const res = await request(app).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
+
+  it('updates profile name, email, and language with valid token', async () => {
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({
+        name: 'Original Name',
+        email: 'original@example.com',
+        password: 'password123',
+        role: 'consumer',
+        language: 'en',
+      });
+    const userToken = reg.body.token;
+
+    const res = await request(app)
+      .put('/api/auth/profile')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        name: 'New Name',
+        email: 'newemail@example.com',
+        language: 'fr',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.user.name).toBe('New Name');
+    expect(res.body.user.email).toBe('newemail@example.com');
+    expect(res.body.user.language).toBe('fr');
+  });
+
+  it('/profile updates return 401 without token', async () => {
+    const res = await request(app)
+      .put('/api/auth/profile')
+      .send({ name: 'Fails' });
+    expect(res.status).toBe(401);
+  });
 });
