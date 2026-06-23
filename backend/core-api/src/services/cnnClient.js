@@ -33,16 +33,11 @@ async function classifyImage(imageBuffer, mimeType) {
     const { foodType, label, confidence } = response.data;
     return { foodType, label, confidence };
   } catch (err) {
-    // If CNN service is simply unreachable (not running), use mock prediction
-    // so the rest of the scan pipeline (gas-sim + Gemini) still works.
-    if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
-      return mockPrediction(imageBuffer);
-    }
-    // Any other error (bad response, 5xx) — surface it clearly
     const detail = err.response?.data
       ? JSON.stringify(err.response.data)
       : err.message;
-    throw new Error(`CNN classification failed: ${detail}`);
+    console.warn(`[cnnClient] CNN service classification failed: ${detail}. Falling back to mock prediction.`);
+    return mockPrediction(imageBuffer);
   }
 }
 
