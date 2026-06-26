@@ -40,8 +40,11 @@ export default function Scan() {
     try {
       const { data } = await api.post('/scan', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setScan(data);
-    } catch { setError(t('scan.error')); }
-    finally { setLoading(false); }
+    } catch (err) {
+      setError(err.response?.data?.error || t('scan.error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddToInventory = (scanData) => {

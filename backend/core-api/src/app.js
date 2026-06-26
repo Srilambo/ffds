@@ -20,28 +20,48 @@ const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',') 
   : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177'];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-}));
+// Allow all origins in production if CORS_ORIGIN is set to '*'
+const allowAllOrigins = allowedOrigins.includes('*');
+
+const corsOptionsDelegate = (req, callback) => {
+  const origin = req.header('Origin');
+  const host = req.header('Host');
+  
+  let isSameOrigin = false;
+  if (origin && host) {
+    try {
+      isSameOrigin = new URL(origin).host === host;
+    } catch (e) {}
+  }
+  
+  const isAllowed = !origin || isSameOrigin || allowAllOrigins || allowedOrigins.indexOf(origin) !== -1;
+  
+  callback(null, {
+    origin: isAllowed ? origin : false,
+    credentials: true
+  });
+};
+
+app.use(cors(corsOptionsDelegate));
+
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    req.url = req.url.slice(4) || '/';
+  }
+  next();
+});
 
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/assets/images', express.static(path.join(__dirname, '../assets/images')));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/scan', scanRoutes);
-app.use('/api/scans', scansRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/manager', managerRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/auth', authRoutes);
+app.use('/scan', scanRoutes);
+app.use('/scans', scansRoutes);
+app.use('/chat', chatRoutes);
+app.use('/inventory', inventoryRoutes);
+app.use('/manager', managerRoutes);
+app.use('/admin', adminRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
