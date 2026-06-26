@@ -5,17 +5,23 @@ const cnnClient = require('../services/cnnClient');
 const { generateGasReadings } = require('../services/gasSim');
 const geminiClient = require('../services/geminiClient');
 
-const UPLOAD_DIR = path.join(__dirname, '../../uploads');
+const IMAGES_DIR = path.join(__dirname, '../../assets/images');
 
 function saveImage(buffer, mimetype) {
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(IMAGES_DIR)) {
+      fs.mkdirSync(IMAGES_DIR, { recursive: true });
+    }
+    const ext = mimetype === 'image/png' ? '.png' : '.jpg';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const filepath = path.join(IMAGES_DIR, filename);
+    fs.writeFileSync(filepath, buffer);
+    return `/assets/images/${filename}`;
+  } catch (err) {
+    console.warn(`[scanController] Local disk write failed: ${err.message}. Falling back to Base64 data URI.`);
+    const base64 = buffer.toString('base64');
+    return `data:${mimetype || 'image/jpeg'};base64,${base64}`;
   }
-  const ext = mimetype === 'image/png' ? '.png' : '.jpg';
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const filepath = path.join(UPLOAD_DIR, filename);
-  fs.writeFileSync(filepath, buffer);
-  return `/uploads/${filename}`;
 }
 
 async function createScan(req, res, next) {
