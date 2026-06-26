@@ -5,8 +5,8 @@ import json
 import os
 from pathlib import Path
 
-import numpy as np  # type: ignore[import-untyped]
-from PIL import Image  # type: ignore[import-untyped]
+import numpy as np  # type: ignore
+from PIL import Image  # type: ignore
 
 # -- Paths ----------------------------------------------------------------------
 MODEL_PATH = os.getenv("MODEL_PATH", "./model/ffds_model.h5")
@@ -69,10 +69,10 @@ def load_model():
 
 def _create_fallback_model():
     """Create a minimal untrained EfficientNetB0 fallback when weights are missing."""
-    import tensorflow as tf  # type: ignore[import-untyped]
-    from tensorflow.keras.applications import EfficientNetB0  # type: ignore[import-untyped]
-    from tensorflow.keras.layers import Dense, GlobalAveragePooling2D  # type: ignore[import-untyped]
-    from tensorflow.keras.models import Model  # type: ignore[import-untyped]
+    import tensorflow as tf  # type: ignore
+    from tensorflow.keras.applications import EfficientNetB0  # type: ignore
+    from tensorflow.keras.layers import Dense, GlobalAveragePooling2D  # type: ignore
+    from tensorflow.keras.models import Model  # type: ignore
 
     base = EfficientNetB0(input_shape=(224, 224, 3), include_top=False,
                           weights="imagenet")
