@@ -3,15 +3,30 @@ const FormData = require('form-data');
 
 const CNN_SERVICE_URL = process.env.CNN_SERVICE_URL || 'http://localhost:8000';
 
+// Comprehensive food / vegetable / fruit list that reflects the training data.
+// This mock is used when the real CNN service is unreachable.
+const FOOD_TYPES = [
+  // Fruits
+  'Apple', 'Banana', 'Orange', 'Mango', 'Grape', 'Strawberry', 'Watermelon',
+  'Pineapple', 'Papaya', 'Guava', 'Pomegranate', 'Lemon', 'Lime', 'Pear',
+  'Peach', 'Plum', 'Cherry', 'Kiwi', 'Coconut', 'Fig',
+  // Vegetables
+  'Tomato', 'Carrot', 'Potato', 'Onion', 'Garlic', 'Spinach', 'Broccoli',
+  'Cauliflower', 'Cabbage', 'Cucumber', 'Bell Pepper', 'Chilli Pepper',
+  'Eggplant', 'Zucchini', 'Pumpkin', 'Sweet Potato', 'Beetroot', 'Corn',
+  'Peas', 'Ginger', 'Lettuce', 'Capsicum', 'Okra', 'Radish', 'Mushroom',
+  // Prepared / packaged foods
+  'Bread', 'Rice', 'Egg', 'Meat', 'Fish', 'Tofu', 'Cheese', 'Milk',
+];
+
 // Fallback mock prediction used when the CNN service is unreachable.
 // Deterministic: same image bytes → same result, so scans are consistent.
 function mockPrediction(imageBuffer) {
   const LABELS = ['Fresh', 'Borderline', 'Spoiled'];
-  const FOOD_TYPES = ['Apple', 'Banana', 'Tomato', 'Carrot', 'Lettuce', 'Orange', 'Cucumber'];
   const seed = imageBuffer.length % LABELS.length;
   const foodSeed = (imageBuffer.length >> 2) % FOOD_TYPES.length;
   const label = LABELS[seed];
-  const confidence = parseFloat((80 + (imageBuffer.length % 19)).toFixed(2));
+  const confidence = parseFloat((78 + (imageBuffer.length % 21)).toFixed(2));
   const foodType = FOOD_TYPES[foodSeed];
   console.warn(`[CNN] Service unreachable at ${CNN_SERVICE_URL} — using mock prediction`);
   return { foodType, label, confidence };

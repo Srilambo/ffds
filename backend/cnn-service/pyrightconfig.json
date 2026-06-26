@@ -1,0 +1,15 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "warning",
+  "exclude": [
+    "data/**",
+    "model/**",
+    ".venv/**"
+  ]
+}
