@@ -137,4 +137,35 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, signToken, sanitizeUser };
+async function updateProfile(req, res, next) {
+  try {
+    const { name, email, language } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (language) {
+      if (!['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
+        return res.status(400).json({ error: 'Language must be en, si, ta, ar, fr, or ja' });
+      }
+      user.language = language;
+    }
+    if (email && email !== user.email) {
+      const existing = await User.findOne({ email });
+      if (existing) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+      user.email = email;
+    }
+
+    await user.save();
+    const token = signToken(user);
+    return res.status(200).json({ token, user: sanitizeUser(user) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, updateProfile, signToken, sanitizeUser };
