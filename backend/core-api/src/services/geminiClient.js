@@ -15,7 +15,18 @@ async function identifyFoodFromImage(imageBuffer, mimeType) {
   try {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const result = await model.generateContent([
-      'Look at this food image. Identify the specific food item (e.g. Apple, Banana, Tomato, Carrot, Mango). Reply with ONLY the food name in English, nothing else.',
+      `You are a food recognition expert. Carefully examine this image and identify the single food item shown.
+
+Look closely at:
+- The shape (round, elongated, irregular)
+- The size cues in the image
+- The colour (inside and outside if visible)
+- The texture and surface (smooth skin, rough skin, leafy)
+- Any distinctive features (seeds visible, stem, leaves attached)
+
+Common foods to consider: Apple, Banana, Orange, Mango, Strawberry, Tomato, Carrot, Cucumber, Broccoli, Potato, Onion, Lemon, Grape, Watermelon, Pineapple, Avocado, Bell Pepper, Pear, Peach, Plum, Cherry, Blueberry, Lettuce, Spinach, Corn, Garlic.
+
+IMPORTANT: Reply with ONLY the single food item name in English. Do not add any other words, punctuation, or explanation.`,
       {
         inlineData: {
           mimeType: mimeType || 'image/jpeg',
@@ -24,7 +35,9 @@ async function identifyFoodFromImage(imageBuffer, mimeType) {
       },
     ]);
     const identified = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
-    return identified || 'Food Item';
+    // Take only the first word/two words in case Gemini returns extra text
+    const words = identified.split(/\s+/).slice(0, 2).join(' ');
+    return words || 'Food Item';
   } catch (err) {
     console.error('Gemini identifyFoodFromImage failed:', err.message);
     return 'Food Item';
