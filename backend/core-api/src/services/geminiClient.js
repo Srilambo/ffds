@@ -3,6 +3,34 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const MODEL_NAME = 'gemini-2.0-flash';
 
+// These are generic labels the CNN fallback returns when no real model is loaded
+const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
+
+/**
+ * Use Gemini vision to identify the real food in the uploaded image.
+ * Called when the CNN fallback returns a generic label like "Detected Item".
+ * Returns a plain string e.g. "Apple", "Banana", "Tomato".
+ */
+async function identifyFoodFromImage(imageBuffer, mimeType) {
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const result = await model.generateContent([
+      'Look at this food image. Identify the specific food item (e.g. Apple, Banana, Tomato, Carrot, Mango). Reply with ONLY the food name in English, nothing else.',
+      {
+        inlineData: {
+          mimeType: mimeType || 'image/jpeg',
+          data: imageBuffer.toString('base64'),
+        },
+      },
+    ]);
+    const identified = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
+    return identified || 'Food Item';
+  } catch (err) {
+    console.error('Gemini identifyFoodFromImage failed:', err.message);
+    return 'Food Item';
+  }
+}
+
 function buildScanPrompt({ foodType, label, confidence, gasReadings, language, role }) {
   let langInstruction = 'Respond in English.';
   if (language === 'si') {
@@ -27,9 +55,14 @@ Scan results:
 ${roleContext}
 ${langInstruction}
 
-Provide a concise explanation of why the food appears ${label}, health considerations, and storage/usage advice.`;
+Provide a concise explanation of why the food appears ${label}, health considerations, and storage/usage advice. Keep the response under 120 words.`;
 }
 
+/**
+ * Generate a chatbot explanation for a scan result.
+ * Returns { text, foodType } where foodType is the Gemini-identified food name
+ * if the CNN returned a generic label.
+ */
 async function explainScan({
   foodType,
   label,
@@ -38,11 +71,19 @@ async function explainScan({
   language,
   role,
   imageBuffer,
+  mimeType,
 }) {
   try {
+    // If the CNN returned a generic label, ask Gemini to visually identify the food
+    const isGeneric = GENERIC_FOOD_LABELS.includes((foodType || '').toLowerCase().trim());
+    let resolvedFoodType = foodType;
+    if (imageBuffer && isGeneric) {
+      resolvedFoodType = await identifyFoodFromImage(imageBuffer, mimeType);
+    }
+
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildScanPrompt({
-      foodType,
+      foodType: resolvedFoodType,
       label,
       confidence,
       gasReadings,
@@ -54,7 +95,7 @@ async function explainScan({
     if (imageBuffer) {
       parts.push({
         inlineData: {
-          mimeType: 'image/jpeg',
+          mimeType: mimeType || 'image/jpeg',
           data: imageBuffer.toString('base64'),
         },
       });
@@ -62,7 +103,7 @@ async function explainScan({
 
     const result = await model.generateContent(parts);
     const text = result.response.text();
-    return text;
+    return { text, foodType: resolvedFoodType };
   } catch (err) {
     throw new Error(`Gemini explainScan failed: ${err.message}`);
   }
@@ -106,4 +147,4 @@ ${langInstruction}`;
   }
 }
 
-module.exports = { explainScan, answerFollowUp };
+module.exports = { identifyFoodFromImage, explainScan, answerFollowUp };
