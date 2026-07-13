@@ -29,18 +29,27 @@ async function createScan(req, res, next) {
     const gasReadings = generateGasReadings(cnnResult.label, cnnResult.confidence);
     const imageUrl = saveImage(buffer, mimetype);
 
-    const explanation = await geminiClient.explainScan({
+    // explainScan now returns { text, foodType } where foodType is Gemini-identified
+    // when the CNN fallback returned a generic label like "Detected Item"
+    const geminiResult = await geminiClient.explainScan({
       ...cnnResult,
       gasReadings,
       language: req.user.language,
       role: req.user.role,
       imageBuffer: buffer,
+      mimeType: mimetype,
     });
+
+    // Support both old string return and new { text, foodType } return
+    const explanation = typeof geminiResult === 'string' ? geminiResult : geminiResult.text;
+    const resolvedFoodType = (typeof geminiResult === 'object' && geminiResult.foodType)
+      ? geminiResult.foodType
+      : cnnResult.foodType;
 
     const scan = await Scan.create({
       userId: req.user._id,
       imageUrl,
-      foodType: cnnResult.foodType,
+      foodType: resolvedFoodType,
       label: cnnResult.label,
       confidence: cnnResult.confidence,
       gasReadings,
