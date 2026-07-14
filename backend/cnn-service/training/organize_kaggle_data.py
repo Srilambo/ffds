@@ -33,6 +33,7 @@ import random
 import shutil
 import zipfile
 from pathlib import Path
+from PIL import Image, ImageEnhance, ImageDraw
 
 RANDOM_SEED = 42
 BORDERLINE_RATIO = 0.20
@@ -71,13 +72,45 @@ def collect_images(root: Path) -> dict:
     return collected
 
 
-def copy_images(src_list, dest_dir: Path, label: str):
+def transform_to_borderline(src_path: Path, dest_path: Path):
+    try:
+        with Image.open(src_path) as img:
+            img = img.convert("RGB")
+            
+            # 1. Decrease brightness slightly (aging)
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(0.85)
+            
+            # 2. Decrease color saturation (fading)
+            enhancer = ImageEnhance.Color(img)
+            img = enhancer.enhance(0.75)
+            
+            # 3. Add random dark brown bruises
+            draw = ImageDraw.Draw(img)
+            w, h = img.size
+            num_bruises = random.randint(2, 4)
+            for _ in range(num_bruises):
+                r = random.randint(min(w, h) // 25, min(w, h) // 12)
+                x = random.randint(r, w - r)
+                y = random.randint(r, h - r)
+                draw.ellipse([x - r, y - r, x + r, y + r], fill=(80, 50, 25))
+            
+            img.save(dest_path, quality=95)
+    except Exception:
+        shutil.copy2(src_path, dest_path)
+
+
+def copy_images(src_list, dest_dir: Path, label: str, is_borderline: bool = False):
     dest_dir.mkdir(parents=True, exist_ok=True)
     for i, src in enumerate(src_list):
         ext = src.suffix.lower()
         dest = dest_dir / f"{label}_{i:05d}{ext}"
-        shutil.copy2(src, dest)
+        if is_borderline:
+            transform_to_borderline(src, dest)
+        else:
+            shutil.copy2(src, dest)
     print("  Copied " + str(len(src_list)) + " images to " + str(dest_dir))
+
 
 
 def main():
@@ -104,16 +137,18 @@ def main():
     data_dir    = Path(args.data_dir)
 
     # Step 1: Unzip
-    if not zip_path.exists():
-        print("ERROR: zip not found at " + str(zip_path))
-        print("Run: kaggle datasets download muhriddinmuxiddinov/fruits-and-vegetables-dataset --path ./kaggle_raw")
-        return
-
-    print("Extracting " + str(zip_path) + " to " + str(extract_dir) + " ...")
-    extract_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path, 'r') as z:
-        z.extractall(extract_dir)
-    print("Extraction complete.")
+    if extract_dir.exists() and any(extract_dir.iterdir()):
+        print("Dataset already extracted at " + str(extract_dir) + ". Skipping extraction.")
+    else:
+        if not zip_path.exists():
+            print("ERROR: zip not found at " + str(zip_path))
+            print("Run: kaggle datasets download muhriddinmuxiddinov/fruits-and-vegetables-dataset --path ./kaggle_raw")
+            return
+        print("Extracting " + str(zip_path) + " to " + str(extract_dir) + " ...")
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            z.extractall(extract_dir)
+        print("Extraction complete.")
 
     # Step 2: Collect images
     print("\nScanning extracted files...")
@@ -137,7 +172,7 @@ def main():
     # Step 5: Copy to data/
     print("\nCopying images to data/ ...")
     copy_images(collected['fresh'],   data_dir / 'fresh',      'fresh')
-    copy_images(borderline_imgs,      data_dir / 'borderline', 'borderline')
+    copy_images(borderline_imgs,      data_dir / 'borderline', 'borderline', is_borderline=True)
     copy_images(collected['spoiled'], data_dir / 'spoiled',    'spoiled')
 
     total = len(collected['fresh']) + len(borderline_imgs) + len(collected['spoiled'])

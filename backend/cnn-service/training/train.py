@@ -21,7 +21,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.metrics import classification_report
 from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -40,7 +40,9 @@ def build_model(num_classes: int = 3) -> Model:
         include_top=False,
         weights="imagenet",
     )
-    base_model.trainable = False
+    base_model.trainable = True
+    for layer in base_model.layers[:-30]:
+        layer.trainable = False
 
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
@@ -51,7 +53,7 @@ def build_model(num_classes: int = 3) -> Model:
 
     model = Model(inputs=base_model.input, outputs=outputs)
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
         loss="categorical_crossentropy",
         metrics=["accuracy"],
     )
@@ -141,6 +143,13 @@ def main():
             output_path,
             monitor="val_accuracy",
             save_best_only=True,
+            verbose=1,
+        ),
+        ReduceLROnPlateau(
+            monitor="val_loss",
+            factor=0.2,
+            patience=3,
+            min_lr=1e-6,
             verbose=1,
         ),
     ]
