@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np  # type: ignore
 from PIL import Image  # type: ignore
+from .food_classifier import classify_food
 
 # -- Paths ----------------------------------------------------------------------
 MODEL_PATH = os.getenv("MODEL_PATH", "./model/ffds_model.h5")
@@ -128,13 +129,17 @@ def predict(image_bytes: bytes) -> dict:
             _random.seed(w * h)
         except Exception:
             pass
-
-        label = _random.choice(["Fresh", "Borderline", "Spoiled"])
-        confidence = round(_random.uniform(70.0, 95.0), 2)
+        labels = ["Fresh", "Borderline", "Spoiled"]
+        selected = _random.choice(labels)
+        confidence = _random.uniform(80.0, 99.0)
+        
+        # Use food classifier for food name
+        food_type = classify_food(image_bytes)
+        
         return {
-            "foodType": "Food Item",
-            "label": label,
-            "confidence": confidence,
+            "foodType": food_type,
+            "label": selected,
+            "confidence": round(confidence, 2),
         }
 
     # -- Real inference -----------------------------------------------------
@@ -143,13 +148,9 @@ def predict(image_bytes: bytes) -> dict:
     idx = int(np.argmax(probs))
     confidence = float(probs[idx] * 100)
 
-    raw_class = _class_names[idx] if idx < len(_class_names) else "fresh"
-    label = _freshness_label(raw_class)
-
-    # Derive a simple food-type display string from the class folder name.
-    # After training on real datasets the class names stay fresh/borderline/spoiled,
-    # so foodType echoes the freshness label for now.
-    food_type = label
+    label = LABEL_MAP.get(idx, "Fresh")
+    # Use food classifier to identify the actual food item
+    food_type = classify_food(image_bytes)
 
     return {
         "foodType": food_type,

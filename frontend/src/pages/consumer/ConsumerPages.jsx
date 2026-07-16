@@ -496,8 +496,73 @@ export function ConsumerRecipes() {
   );
 }
 
+const SHOPPING_ITEMS = [
+  { name: 'Eggs', qty: '1 dozen', reason: 'Low stock', checked: false, emoji: '🥚' },
+  { name: 'Bananas', qty: '6 pcs', reason: 'Used in recipes', checked: false, emoji: '🍌' },
+  { name: 'Butter', qty: '250g', reason: 'Expired', checked: true, emoji: '🧈' },
+  { name: 'Spinach', qty: '1 bag', reason: 'Weekly staple', checked: false, emoji: '🥬' },
+  { name: 'Chicken Breast', qty: '500g', reason: 'Meal prep', checked: false, emoji: '🍗' },
+];
+
 export function ConsumerShoppingList() {
-  return <PlaceholderPage icon="📋" title="Shopping List" description="Auto-generated from low and expired pantry items. Check off items while you shop and share with family." />;
+  const [items, setItems] = useState(SHOPPING_ITEMS);
+
+  const toggleItem = (name) => {
+    setItems((prev) => prev.map((i) => i.name === name ? { ...i, checked: !i.checked } : i));
+  };
+
+  const checkedCount = items.filter((i) => i.checked).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="page-header animate-fade-up">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1>📋 Shopping List</h1>
+            <p>Auto-generated from low and expired pantry items.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">{checkedCount}/{items.length} done</span>
+            <button className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-300 text-sm font-semibold hover:bg-white/5 transition-all">
+              Share
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass rounded-2xl p-4 animate-fade-up delay-100">
+        <div className="progress-bar mb-4">
+          <div className="progress-fill" style={{ width: `${(checkedCount / items.length) * 100}%` }} />
+        </div>
+        <div className="space-y-2 stagger-children">
+          {items.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => toggleItem(item.name)}
+              className={`w-full flex items-center gap-4 p-3 md:p-4 rounded-xl transition-all text-left ${
+                item.checked
+                  ? 'bg-white/[0.02] opacity-60'
+                  : 'bg-white/5 hover:bg-white/8 border border-white/5'
+              }`}
+            >
+              <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                item.checked ? 'bg-brand-500 border-brand-500' : 'border-slate-600'
+              }`}>
+                {item.checked && <span className="text-white text-xs">✓</span>}
+              </div>
+              <span className="text-2xl">{item.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className={`font-semibold ${item.checked ? 'line-through text-slate-500' : 'text-white'}`}>
+                  {item.name}
+                </p>
+                <p className="text-xs text-slate-500">{item.qty} · {item.reason}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ────────────────────────────────────────────────────────────

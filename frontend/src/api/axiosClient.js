@@ -15,11 +15,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || '';
+    const isAuthAttempt = url.includes('/auth/login') || url.includes('/auth/register');
+
+    if (error.response?.status === 401 && !isAuthAttempt) {
       localStorage.removeItem('ffds_token');
       localStorage.removeItem('ffds_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      const publicPaths = ['/', '/login', '/register'];
+      if (!publicPaths.includes(window.location.pathname)) {
+        window.location.href = '/';
       }
     }
     return Promise.reject(error);
