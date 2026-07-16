@@ -3,8 +3,56 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const MODEL_NAME = 'gemini-2.0-flash';
 
-// These are generic labels the CNN fallback returns when no real model is loaded
 const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
+
+const DATASET_CLASS_NAMES = {
+  apple: 'Apple',
+  banana: 'Banana',
+  mango: 'Mango',
+  orange: 'Orange',
+  strawberry: 'Strawberry',
+  bellpepper: 'Bellpepper',
+  'bell pepper': 'Bellpepper',
+  capsicum: 'Bellpepper',
+  carrot: 'Carrot',
+  cucumber: 'Cucumber',
+  potato: 'Potato',
+  tomato: 'Tomato',
+};
+
+function normalizeFoodTypeName(name) {
+  const key = (name || '').toLowerCase().trim();
+  if (DATASET_CLASS_NAMES[key]) return DATASET_CLASS_NAMES[key];
+  if (!name) return 'Food Item';
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function isGenericFoodLabel(name) {
+  return GENERIC_FOOD_LABELS.includes((name || '').toLowerCase().trim());
+}
+
+/**
+ * Resolve food name: CNN model first, then Gemini vision if still generic.
+ */
+async function resolveFoodType(imageBuffer, mimeType, cnnFoodType) {
+  let resolved = normalizeFoodTypeName(cnnFoodType || 'Food Item');
+
+  if (!isGenericFoodLabel(resolved)) {
+    return resolved;
+  }
+
+  try {
+    const identified = await identifyFoodFromImage(imageBuffer, mimeType);
+    const normalized = normalizeFoodTypeName(identified);
+    if (!isGenericFoodLabel(normalized)) {
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('Gemini food identification failed:', err.message);
+  }
+
+  return resolved;
+}
 
 /**
  * Use Gemini vision to identify the real food in the uploaded image.
@@ -24,7 +72,9 @@ Look closely at:
 - The texture and surface (smooth skin, rough skin, leafy)
 - Any distinctive features (seeds visible, stem, leaves attached)
 
-Common foods to consider: Apple, Banana, Orange, Mango, Strawberry, Tomato, Carrot, Cucumber, Broccoli, Potato, Onion, Lemon, Grape, Watermelon, Pineapple, Avocado, Bell Pepper, Pear, Peach, Plum, Cherry, Blueberry, Lettuce, Spinach, Corn, Garlic.
+Common foods to consider (prioritize these dataset classes):
+Apple, Banana, Mango, Orange, Strawberry, Bellpepper, Carrot, Cucumber, Potato, Tomato.
+Also: Broccoli, Potato, Onion, Lemon, Grape, Watermelon, Pineapple, Avocado, Pear, Peach, Cherry, Blueberry, Lettuce, Spinach, Corn, Garlic.
 
 IMPORTANT: Reply with ONLY the single food item name in English. Do not add any other words, punctuation, or explanation.`,
       {
@@ -52,10 +102,17 @@ function buildScanPrompt({ foodType, label, confidence, gasReadings, language, r
     langInstruction = 'Respond entirely in Tamil (தமிழ்).';
   }
 
-  const roleContext =
-    role === 'manager'
-      ? 'The user is a shop manager. Include a brief waste-risk note for inventory management.'
-      : 'The user is a consumer. Focus on health safety and home storage advice.';
+  let roleContext;
+  switch (role) {
+    case 'manager':
+      roleContext = 'The user is a shop manager. Include a brief waste-risk note for inventory management and cost impact.';
+      break;
+    case 'farmer':
+      roleContext = 'The user is a farmer. Focus on harvest quality, post-harvest handling, transport recommendations, and sell/hold decision support.';
+      break;
+    default:
+      roleContext = 'The user is a consumer. Focus on health safety and home storage advice.';
+  }
 
   return `You are a food freshness advisor for FFDS (Food Freshness Detection System).
 
@@ -88,7 +145,7 @@ async function explainScan({
 }) {
   try {
     // If the CNN returned a generic label, ask Gemini to visually identify the food
-    const isGeneric = GENERIC_FOOD_LABELS.includes((foodType || '').toLowerCase().trim());
+    const isGeneric = isGenericFoodLabel((foodType || '').toLowerCase().trim());
     let resolvedFoodType = foodType;
     if (imageBuffer && isGeneric) {
       resolvedFoodType = await identifyFoodFromImage(imageBuffer, mimeType);
@@ -160,4 +217,11 @@ ${langInstruction}`;
   }
 }
 
-module.exports = { identifyFoodFromImage, explainScan, answerFollowUp };
+module.exports = {
+  identifyFoodFromImage,
+  explainScan,
+  answerFollowUp,
+  resolveFoodType,
+  isGenericFoodLabel,
+  normalizeFoodTypeName,
+};

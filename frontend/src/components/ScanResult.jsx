@@ -26,13 +26,52 @@ export default function ScanResult({ scan, onAddToInventory }) {
   const { t } = useTranslation();
   const cfg = labelConfig[scan.label] || labelConfig.Fresh;
 
+  // Format expiration date
+  const formatExpiryDate = (date) => {
+    if (!date) return null;
+    const expiry = new Date(date);
+    return expiry.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  // Calculate days until expiration
+  const getDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return null;
+    const now = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const expiryDate = formatExpiryDate(scan.expiryDate);
+  const daysUntilExpiry = getDaysUntilExpiry(scan.expiryDate);
+
   return (
-    <div className="glass p-6 space-y-6 fade-up">
+    <div className="glass p-4 md:p-6 space-y-5 md:space-y-6 card-hover h-full">
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{t('result.foodType')}</p>
-          <p className="text-2xl font-bold text-white capitalize">{scan.foodType}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('result.foodType')}</p>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold">
+              {t('result.aiDetected', 'AI Detected')}
+            </span>
+          </div>
+          <p className="text-2xl md:text-3xl font-bold text-white capitalize">{scan.foodType}</p>
+          {expiryDate && (
+            <p className="text-xs text-slate-400 mt-1">
+              Expires: <span className="text-white font-medium">{expiryDate}</span>
+              {daysUntilExpiry !== null && (
+                <span className={`ml-2 ${daysUntilExpiry <= 2 ? 'text-red-400' : 'text-brand-400'}`}>
+                  ({daysUntilExpiry > 0 ? `${daysUntilExpiry} days left` : 'Expired'})
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex flex-col items-center gap-1">
           <span className={`text-3xl`}>{cfg.icon}</span>
@@ -57,13 +96,15 @@ export default function ScanResult({ scan, onAddToInventory }) {
       </div>
 
       {/* Gas sensor readings */}
-      <div className="glass bg-white/2 p-4 rounded-xl space-y-4">
+      <div className="glass bg-white/[0.02] p-4 rounded-xl space-y-4">
+        <div className="grid sm:grid-cols-1 gap-4">
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           🌡️ {t('result.gasReadings')}
         </h3>
         <GasStat label={t('result.nh3')}      value={scan.gasReadings.nh3}      max={100} color="from-blue-700 to-blue-400" />
         <GasStat label={t('result.h2s')}      value={scan.gasReadings.h2s}      max={50}  color="from-purple-700 to-purple-400" />
         <GasStat label={t('result.ethylene')} value={scan.gasReadings.ethylene} max={200} color="from-teal-700 to-teal-400" />
+        </div>
       </div>
 
       {/* AI Chatbot */}

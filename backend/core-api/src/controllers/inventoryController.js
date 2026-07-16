@@ -1,4 +1,5 @@
 const InventoryItem = require('../models/InventoryItem');
+const { syncExpiryNotificationsForUser } = require('../services/expiryNotificationService');
 
 function getListFilter(user) {
   if (user.role === 'manager' && user.teamId) {
@@ -54,8 +55,12 @@ async function create(req, res, next) {
       status: status || 'active',
       linkedScanId: linkedScanId || null,
       userId: req.user._id,
+      ownerId: req.user._id,
+      ownerType: req.user.role === 'manager' ? 'business' : req.user.role === 'farmer' ? 'farm' : 'consumer',
       teamId: req.user.teamId || null,
     });
+
+    await syncExpiryNotificationsForUser(req.user._id);
 
     return res.status(201).json(item);
   } catch (err) {
@@ -80,6 +85,7 @@ async function update(req, res, next) {
     if (status != null) item.status = status;
 
     await item.save();
+    await syncExpiryNotificationsForUser(req.user._id);
     return res.status(200).json(item);
   } catch (err) {
     next(err);

@@ -34,6 +34,11 @@ function sanitizeUser(user) {
     businessId: user.businessId,
     farmId: user.farmId,
     familyId: user.familyId,
+    notificationPrefs: user.notificationPrefs || {
+      expiryReminders: true,
+      pushEnabled: true,
+      reminderDays: 2,
+    },
     isActive: user.isActive,
     lastLogin: user.lastLogin,
   };
@@ -132,4 +137,36 @@ async function me(req, res, next) {
   }
 }
 
-module.exports = { register, login, me, signToken, sanitizeUser };
+async function updateProfile(req, res, next) {
+  try {
+    const { name, language, notificationPrefs } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (name) user.name = name;
+    if (language && ['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
+      user.language = language;
+    }
+    if (notificationPrefs) {
+      if (!user.notificationPrefs) {
+        user.notificationPrefs = { expiryReminders: true, pushEnabled: true, reminderDays: 2 };
+      }
+      if (notificationPrefs.expiryReminders != null) {
+        user.notificationPrefs.expiryReminders = !!notificationPrefs.expiryReminders;
+      }
+      if (notificationPrefs.pushEnabled != null) {
+        user.notificationPrefs.pushEnabled = !!notificationPrefs.pushEnabled;
+      }
+      if (notificationPrefs.reminderDays != null) {
+        user.notificationPrefs.reminderDays = Math.min(14, Math.max(1, Number(notificationPrefs.reminderDays)));
+      }
+    }
+
+    await user.save();
+    return res.status(200).json(sanitizeUser(user));
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, me, updateProfile, signToken, sanitizeUser };

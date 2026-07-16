@@ -8,7 +8,9 @@ const scanRoutes = require('./routes/scan');
 const scansRoutes = require('./routes/scans');
 const chatRoutes = require('./routes/chat');
 const inventoryRoutes = require('./routes/inventory');
+const notificationRoutes = require('./routes/notifications');
 const managerRoutes = require('./routes/manager');
+const farmerRoutes = require('./routes/farmer');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
@@ -40,7 +42,9 @@ app.use('/api/scan', scanRoutes);
 app.use('/api/scans', scansRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/manager', managerRoutes);
+app.use('/api/farmer', farmerRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use((err, req, res, next) => {
