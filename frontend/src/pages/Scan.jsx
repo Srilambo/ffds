@@ -34,17 +34,19 @@ export default function Scan() {
 
   const handleSubmit = async () => {
     if (!file) return;
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setScan(null);
     const fd = new FormData();
     fd.append('image', file);
     try {
       const { data } = await api.post('/scan', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setScan(data);
+      setError('');
     } catch (err) {
-      setError(err.response?.data?.error || t('scan.error'));
-    } finally {
-      setLoading(false);
+      const errorMsg = err.response?.data?.error || err.message || t('scan.error');
+      setError(errorMsg);
+      setScan(null);
     }
+    finally { setLoading(false); }
   };
 
   const handleAddToInventory = (scanData) => {
@@ -67,94 +69,137 @@ export default function Scan() {
   };
 
   return (
-    <div className="space-y-6 fade-up">
+    <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">{t('scan.title')}</h1>
-        <p className="text-slate-500 text-sm mt-1">Upload or capture a food photo for AI freshness analysis</p>
-      </div>
-
-      {/* Upload card */}
-      <div className="glass p-6 space-y-5">
-        {/* Drag-drop zone */}
-        <div
-          ref={dropRef}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={handleDrop}
-          className={`relative border-2 border-dashed rounded-xl flex flex-col items-center justify-center py-12 transition-all cursor-pointer ${
-            dragging
-              ? 'border-brand-400 bg-brand-500/10'
-              : 'border-white/10 hover:border-brand-600/50 hover:bg-white/2'
-          }`}
-        >
-          {preview ? (
-            <div className="relative">
-              <img src={preview} alt="preview" className="max-h-56 max-w-full rounded-lg shadow-lg border border-white/10" />
-              <button
-                type="button"
-                onClick={() => { setFile(null); setPreview(null); setScan(null); }}
-                className="absolute -top-2 -right-2 h-6 w-6 bg-red-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-600"
-              >✕</button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-center px-6">
-              <div className="h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
-                🍎
-              </div>
-              <div>
-                <p className="text-white font-medium text-sm">Drop an image here</p>
-                <p className="text-slate-500 text-xs mt-1">PNG, JPG, WEBP — max 10MB</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Upload buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <label
-            id="scan-capture-btn"
-            className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer btn-glow text-white text-sm font-semibold"
-          >
-            📷 {t('scan.capture')}
-            <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
-          </label>
-          <label
-            id="scan-upload-btn"
-            className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer border border-brand-600/40 text-brand-400 text-sm font-semibold hover:bg-brand-600/10 transition-all"
-          >
-            📁 {t('scan.upload')}
-            <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-          </label>
-        </div>
-
-        {error && (
-          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-red-400 text-sm">
-            ⚠️ {error}
+      <div className="page-header animate-fade-up">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h1>{t('scan.title')}</h1>
+            <p>Upload or capture a food photo for AI freshness analysis</p>
           </div>
-        )}
-
-        <button
-          id="scan-submit-btn"
-          onClick={handleSubmit}
-          disabled={!file || loading}
-          className="btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <><span className="spinner" /> {t('scan.loading')}</>
-          ) : (
-            <><span>🔬</span> {t('scan.submit')}</>
-          )}
-        </button>
+          <div className="flex gap-2 stagger-children">
+            {['🔬 CNN', '🌡️ Gas', '🤖 AI'].map((tag) => (
+              <span key={tag} className="text-[10px] px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Scan result */}
-      {scan && <ScanResult scan={scan} onAddToInventory={handleAddToInventory} />}
+      {/* Responsive layout: stack on mobile, side-by-side on lg */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Upload card */}
+        <div className="glass p-4 md:p-6 space-y-5 card-hover animate-fade-up delay-100">
+          <div
+            ref={dropRef}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={handleDrop}
+            className={`relative border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
+              preview ? 'py-6' : 'py-10 md:py-14'
+            } ${
+              dragging
+                ? 'border-brand-400 bg-brand-500/10 scale-[1.01]'
+                : 'border-white/10 hover:border-brand-600/50 hover:bg-white/[0.02]'
+            }`}
+          >
+            {preview ? (
+              <div className="relative animate-scale-in">
+                <img src={preview} alt="preview" className="max-h-48 md:max-h-64 max-w-full rounded-xl shadow-lg border border-white/10" />
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); setPreview(null); setScan(null); }}
+                  className="absolute -top-2 -right-2 h-7 w-7 bg-red-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-600 shadow-lg transition-transform hover:scale-110"
+                >✕</button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 text-center px-6">
+                <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl md:text-4xl animate-bounce-gentle">
+                  🍎
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm md:text-base">Drop an image here</p>
+                  <p className="text-slate-500 text-xs mt-1">PNG, JPG, WEBP — max 10MB</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label
+              id="scan-capture-btn"
+              className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer btn-glow text-white text-sm font-semibold"
+            >
+              📷 {t('scan.capture')}
+              <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+            </label>
+            <label
+              id="scan-upload-btn"
+              className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer border border-brand-600/40 text-brand-400 text-sm font-semibold hover:bg-brand-600/10 transition-all"
+            >
+              📁 {t('scan.upload')}
+              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            </label>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm animate-shake">
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button
+            id="scan-submit-btn"
+            onClick={handleSubmit}
+            disabled={!file || loading}
+            className="btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <><span className="spinner" /> {t('scan.loading')}</>
+            ) : (
+              <><span>🔬</span> {t('scan.submit')}</>
+            )}
+          </button>
+        </div>
+
+        {/* Result panel — shows placeholder on desktop when no scan */}
+        <div className="animate-fade-up delay-200">
+          {scan ? (
+            <ScanResult scan={scan} onAddToInventory={handleAddToInventory} />
+          ) : (
+            <div className="glass p-6 md:p-8 h-full min-h-[280px] flex flex-col items-center justify-center text-center space-y-4 border border-dashed border-white/10 rounded-2xl">
+              <div className="text-5xl md:text-6xl animate-float-slow">🥬</div>
+              <div>
+                <p className="text-white font-semibold">Ready to analyze</p>
+                <p className="text-slate-500 text-sm mt-1 max-w-xs">
+                  Upload a food image — the AI model will detect the fruit or vegetable name automatically.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {['Fresh', 'Borderline', 'Spoiled'].map((label) => (
+                  <span key={label} className={`text-[10px] px-2.5 py-1 rounded-full font-semibold badge-${label.toLowerCase()}`}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: result below upload when scan exists */}
+      {scan && (
+        <div className="lg:hidden">
+          {/* Already shown in grid above — no duplicate needed */}
+        </div>
+      )}
 
       {/* Add to inventory modal */}
       {showInventoryForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="glass w-full max-w-md p-6 shadow-2xl fade-up">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm drawer-overlay">
+          <div className="glass w-full sm:max-w-md p-6 shadow-2xl rounded-t-3xl sm:rounded-2xl animate-fade-up safe-bottom">
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-white text-lg">{t('result.addToInventory')}</h2>
               <button onClick={() => setShowInventoryForm(false)} className="text-slate-500 hover:text-white text-xl">✕</button>

@@ -97,7 +97,6 @@ def main():
 
     random.seed(args.seed)
     np.random.seed(args.seed)
-
     data_dir = args.data_dir
     num_images = args.num_images
 
@@ -127,7 +126,6 @@ def main():
     )
     print(f"\n[DONE] Synthetic dataset ready -- {total} images total")
     print("   Run: python training/train.py")
-
 
 if __name__ == "__main__":
     main()

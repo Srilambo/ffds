@@ -3,6 +3,97 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const MODEL_NAME = 'gemini-2.0-flash';
 
+const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
+
+const DATASET_CLASS_NAMES = {
+  apple: 'Apple',
+  banana: 'Banana',
+  mango: 'Mango',
+  orange: 'Orange',
+  strawberry: 'Strawberry',
+  bellpepper: 'Bellpepper',
+  'bell pepper': 'Bellpepper',
+  capsicum: 'Bellpepper',
+  carrot: 'Carrot',
+  cucumber: 'Cucumber',
+  potato: 'Potato',
+  tomato: 'Tomato',
+};
+
+function normalizeFoodTypeName(name) {
+  const key = (name || '').toLowerCase().trim();
+  if (DATASET_CLASS_NAMES[key]) return DATASET_CLASS_NAMES[key];
+  if (!name) return 'Food Item';
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function isGenericFoodLabel(name) {
+  return GENERIC_FOOD_LABELS.includes((name || '').toLowerCase().trim());
+}
+
+/**
+ * Resolve food name: CNN model first, then Gemini vision if still generic.
+ */
+async function resolveFoodType(imageBuffer, mimeType, cnnFoodType) {
+  let resolved = normalizeFoodTypeName(cnnFoodType || 'Food Item');
+
+  if (!isGenericFoodLabel(resolved)) {
+    return resolved;
+  }
+
+  try {
+    const identified = await identifyFoodFromImage(imageBuffer, mimeType);
+    const normalized = normalizeFoodTypeName(identified);
+    if (!isGenericFoodLabel(normalized)) {
+      return normalized;
+    }
+  } catch (err) {
+    console.warn('Gemini food identification failed:', err.message);
+  }
+
+  return resolved;
+}
+
+/**
+ * Use Gemini vision to identify the real food in the uploaded image.
+ * Called when the CNN fallback returns a generic label like "Detected Item".
+ * Returns a plain string e.g. "Apple", "Banana", "Tomato".
+ */
+async function identifyFoodFromImage(imageBuffer, mimeType) {
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const result = await model.generateContent([
+      `You are a food recognition expert. Carefully examine this image and identify the single food item shown.
+
+Look closely at:
+- The shape (round, elongated, irregular)
+- The size cues in the image
+- The colour (inside and outside if visible)
+- The texture and surface (smooth skin, rough skin, leafy)
+- Any distinctive features (seeds visible, stem, leaves attached)
+
+Common foods to consider (prioritize these dataset classes):
+Apple, Banana, Mango, Orange, Strawberry, Bellpepper, Carrot, Cucumber, Potato, Tomato.
+Also: Broccoli, Potato, Onion, Lemon, Grape, Watermelon, Pineapple, Avocado, Pear, Peach, Cherry, Blueberry, Lettuce, Spinach, Corn, Garlic.
+
+IMPORTANT: Reply with ONLY the single food item name in English. Do not add any other words, punctuation, or explanation.`,
+      {
+        inlineData: {
+          mimeType: mimeType || 'image/jpeg',
+          data: imageBuffer.toString('base64'),
+        },
+      },
+    ]);
+    const identified = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
+    // Take only the first word/two words in case Gemini returns extra text
+    const words = identified.split(/\s+/).slice(0, 2).join(' ');
+    return words || 'Food Item';
+  } catch (err) {
+    console.error('Gemini identifyFoodFromImage failed:', err.message);
+    return 'Food Item';
+  }
+}
+
 // FFDS project knowledge for the public chatbot system prompt
 const FFDS_SYSTEM_PROMPT = `You are FreshBot, a helpful AI assistant for the FFDS (Food Freshness Detection System) — a machine-learning-powered web app that helps users detect food freshness using AI.
 
@@ -49,10 +140,17 @@ function buildScanPrompt({ foodType, label, confidence, gasReadings, language, r
     langInstruction = 'Respond entirely in Tamil (தமிழ்).';
   }
 
-  const roleContext =
-    role === 'manager'
-      ? 'The user is a shop manager. Include a brief waste-risk note for inventory management.'
-      : 'The user is a consumer. Focus on health safety and home storage advice.';
+  let roleContext;
+  switch (role) {
+    case 'manager':
+      roleContext = 'The user is a shop manager. Include a brief waste-risk note for inventory management and cost impact.';
+      break;
+    case 'farmer':
+      roleContext = 'The user is a farmer. Focus on harvest quality, post-harvest handling, transport recommendations, and sell/hold decision support.';
+      break;
+    default:
+      roleContext = 'The user is a consumer. Focus on health safety and home storage advice.';
+  }
 
   return `You are a food freshness advisor for FFDS (Food Freshness Detection System).
 
@@ -65,9 +163,14 @@ Scan results:
 ${roleContext}
 ${langInstruction}
 
-Provide a concise explanation of why the food appears ${label}, health considerations, and storage/usage advice.`;
+Provide a concise explanation of why the food appears ${label}, health considerations, and storage/usage advice. Keep the response under 120 words.`;
 }
 
+/**
+ * Generate a chatbot explanation for a scan result.
+ * Returns { text, foodType } where foodType is the Gemini-identified food name
+ * if the CNN returned a generic label.
+ */
 function getMockExplanation({ foodType, label, confidence, gasReadings, language, role }) {
   const fType = (foodType || 'food item').toLowerCase();
   
@@ -157,11 +260,19 @@ async function explainScan({
   language,
   role,
   imageBuffer,
+  mimeType,
 }) {
   try {
+    // If the CNN returned a generic label, ask Gemini to visually identify the food
+    const isGeneric = isGenericFoodLabel((foodType || '').toLowerCase().trim());
+    let resolvedFoodType = foodType;
+    if (imageBuffer && isGeneric) {
+      resolvedFoodType = await identifyFoodFromImage(imageBuffer, mimeType);
+    }
+
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildScanPrompt({
-      foodType,
+      foodType: resolvedFoodType,
       label,
       confidence,
       gasReadings,
@@ -173,14 +284,15 @@ async function explainScan({
     if (imageBuffer) {
       parts.push({
         inlineData: {
-          mimeType: 'image/jpeg',
+          mimeType: mimeType || 'image/jpeg',
           data: imageBuffer.toString('base64'),
         },
       });
     }
 
     const result = await model.generateContent(parts);
-    return result.response.text();
+    const text = result.response.text();
+    return { text, foodType: resolvedFoodType };
   } catch (err) {
     console.warn(`[Gemini API] explainScan failed: ${err.message}. Returning fallback explanation.`);
     return getMockExplanation({ foodType, label, confidence, gasReadings, language, role });
@@ -259,4 +371,12 @@ async function publicChatbot({ question, history = [] }) {
   }
 }
 
-module.exports = { explainScan, answerFollowUp, publicChatbot };
+module.exports = {
+  identifyFoodFromImage,
+  explainScan,
+  answerFollowUp,
+  resolveFoodType,
+  isGenericFoodLabel,
+  normalizeFoodTypeName,
+  publicChatbot,
+};

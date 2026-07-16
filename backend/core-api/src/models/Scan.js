@@ -23,6 +23,7 @@ const scanSchema = new mongoose.Schema(
     chatbotExplanation: { type: String, required: true },
     chatbotResponse: { type: String }, // for new spec compatibility
     language: { type: String, enum: ['en', 'si', 'ta', 'ar', 'fr', 'ja'], default: 'en' },
+    expiryDate: { type: Date },
     createdAt: { type: Date, default: Date.now },
   },
   { collection: 'scans' }

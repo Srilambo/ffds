@@ -4,6 +4,18 @@
   "nav.scan": "Scan",
   "nav.inventory": "Inventory",
   "nav.dashboard": "Dashboard",
+  "nav.manager": {
+    "scans": "Scan History",
+    "waste": "Waste Analytics",
+    "chatbot": "AI Advisor"
+  },
+  "nav.farmer": {
+    "batchScan": "Batch Scan",
+    "calendar": "Calendar",
+    "lossTracking": "Loss Tracker",
+    "buyerReports": "Buyer Reports",
+    "chatbot": "AI Advisor"
+  },
   "nav.logout": "Logout",
   "auth.login": "Login",
   "auth.register": "Register",
@@ -23,6 +35,8 @@
   "auth.loginSuccess": "Login successful",
   "auth.registerSuccess": "Registration successful",
   "auth.error": "Authentication failed",
+  "auth.serverError": "Cannot reach server. Make sure the API is running (npm run dev from project root).",
+  "auth.invalidCredentials": "Invalid email or password",
   "scan.title": "Scan Food",
   "scan.capture": "Capture Photo",
   "scan.upload": "Upload Image",
@@ -30,7 +44,8 @@
   "scan.loading": "Analyzing...",
   "scan.error": "Scan failed. Please try again.",
   "scan.preview": "Preview",
-  "result.foodType": "Food Type",
+  "result.foodType": "Detected Food",
+  "result.aiDetected": "AI Detected",
   "result.label": "Freshness",
   "result.confidence": "Confidence",
   "result.gasReadings": "Gas Sensor Readings",
