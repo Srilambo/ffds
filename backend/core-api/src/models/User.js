@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema(
     farmId: { type: mongoose.Schema.Types.ObjectId, default: null },
     familyId: { type: mongoose.Schema.Types.ObjectId, default: null },
     language: { type: String, enum: ['en', 'si', 'ta', 'ar', 'fr', 'ja'], default: 'en' },
+    notificationPrefs: {
+      expiryReminders: { type: Boolean, default: true },
+      pushEnabled: { type: Boolean, default: true },
+      reminderDays: { type: Number, default: 2, min: 1, max: 14 },
+    },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now },

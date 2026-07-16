@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Scan = require('../models/Scan');
+const InventoryItem = require('../models/InventoryItem');
 const cnnClient = require('../services/cnnClient');
 const { generateGasReadings } = require('../services/gasSim');
 const geminiClient = require('../services/geminiClient');
@@ -29,32 +30,88 @@ async function createScan(req, res, next) {
     const gasReadings = generateGasReadings(cnnResult.label, cnnResult.confidence);
     const imageUrl = saveImage(buffer, mimetype);
 
+    // Always resolve food name from image (CNN + Gemini vision fallback)
+    const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult.foodType);
+
+    // Calculate expiration date based on freshness label
+    const now = new Date();
+    let expiryDate = null;
+    if (cnnResult.label === 'Fresh') {
+      expiryDate = new Date(now.setDate(now.getDate() + 7)); // Fresh items last ~7 days
+    } else if (cnnResult.label === 'Borderline') {
+      expiryDate = new Date(now.setDate(now.getDate() + 3)); // Borderline items last ~3 days
+    } else {
+      expiryDate = new Date(now.setDate(now.getDate() + 1)); // Spoiled items expire in 1 day
+    }
+
     // explainScan now returns { text, foodType } where foodType is Gemini-identified
     // when the CNN fallback returned a generic label like "Detected Item"
-    const geminiResult = await geminiClient.explainScan({
-      ...cnnResult,
-      gasReadings,
-      language: req.user.language,
-      role: req.user.role,
-      imageBuffer: buffer,
-      mimeType: mimetype,
-    });
+    let explanation = '';
+    let finalFoodType = resolvedFoodType;
+    try {
+      const geminiResult = await geminiClient.explainScan({
+        ...cnnResult,
+        foodType: resolvedFoodType,
+        gasReadings,
+        language: req.user.language,
+        role: req.user.role,
+        imageBuffer: buffer,
+        mimeType: mimetype,
+      });
 
-    // Support both old string return and new { text, foodType } return
-    const explanation = typeof geminiResult === 'string' ? geminiResult : geminiResult.text;
-    const resolvedFoodType = (typeof geminiResult === 'object' && geminiResult.foodType)
-      ? geminiResult.foodType
-      : cnnResult.foodType;
+      explanation = typeof geminiResult === 'string' ? geminiResult : geminiResult.text;
+      if (typeof geminiResult === 'object' && geminiResult.foodType && !geminiClient.isGenericFoodLabel(geminiResult.foodType)) {
+        finalFoodType = geminiResult.foodType;
+      }
+    } catch (geminiErr) {
+      console.warn('Gemini explanation failed, proceeding without it:', geminiErr.message);
+      explanation = `Food analysis complete. ${cnnResult.label} with ${cnnResult.confidence}% confidence.`;
+    }
 
-    const scan = await Scan.create({
+    // Build scan document with role-specific fields
+    const scanData = {
       userId: req.user._id,
       imageUrl,
-      foodType: resolvedFoodType,
+      foodType: geminiClient.normalizeFoodTypeName(finalFoodType),
       label: cnnResult.label,
       confidence: cnnResult.confidence,
       gasReadings,
       chatbotExplanation: explanation,
-    });
+      expiryDate,
+    };
+
+    // Attach role-specific IDs
+    if (req.user.role === 'manager' && req.user.businessId) {
+      scanData.businessId = req.user.businessId;
+    }
+    if (req.user.role === 'farmer' && req.user.farmId) {
+      scanData.farmId = req.user.farmId;
+    }
+    // batchId would be set from farmer batch-scan endpoint, not single scan
+
+    const scan = await Scan.create(scanData);
+
+    // For manager/farmer roles, also create inventory item
+    const hasBusinessId = req.user.role === 'manager' && req.user.businessId;
+    const hasFarmId = req.user.role === 'farmer' && req.user.farmId;
+    if (hasBusinessId || hasFarmId) {
+      const ownerType = req.user.role === 'manager' ? 'business' : 'farm';
+      const ownerId = req.user.role === 'manager' ? req.user.businessId : req.user.farmId;
+      
+      await InventoryItem.create({
+        ownerId,
+        ownerType,
+        foodName: geminiClient.normalizeFoodTypeName(finalFoodType),
+        category: 'fruit', // Default, can be updated later
+        quantity: 1,
+        unit: 'pcs',
+        purchaseDate: new Date(),
+        expiryDate,
+        status: cnnResult.label === 'Fresh' ? 'fresh' : (cnnResult.label === 'Borderline' ? 'expiring' : 'spoiled'),
+        location: 'warehouse',
+        linkedScanId: scan._id,
+      });
+    }
 
     return res.status(201).json(scan);
   } catch (err) {

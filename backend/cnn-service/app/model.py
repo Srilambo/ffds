@@ -5,6 +5,7 @@ import os
 
 import numpy as np
 from PIL import Image
+from .food_classifier import classify_food
 
 MODEL_PATH = os.getenv("MODEL_PATH", "./model/ffds_mobilenetv2.h5")
 
@@ -91,8 +92,11 @@ def predict(image_bytes: bytes) -> dict:
         selected = random.choice(labels)
         confidence = random.uniform(80.0, 99.0)
         
+        # Use food classifier for food name
+        food_type = classify_food(image_bytes)
+        
         return {
-            "foodType": "Detected Item",
+            "foodType": food_type,
             "label": selected,
             "confidence": round(confidence, 2),
         }
@@ -103,7 +107,8 @@ def predict(image_bytes: bytes) -> dict:
     confidence = float(probs[idx] * 100)
 
     label = LABEL_MAP.get(idx, "Fresh")
-    food_type = label
+    # Use food classifier to identify the actual food item
+    food_type = classify_food(image_bytes)
 
     return {
         "foodType": food_type,
