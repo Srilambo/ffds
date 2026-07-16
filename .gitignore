@@ -62,9 +62,8 @@ htmlcov/
 # Misc
 *.pem
 .cache/
-
 # FFDS Local Datasets & Secrets
 backend/cnn-service/data/
 backend/cnn-service/kaggle_raw/
 kaggle.json
-
+.vercel

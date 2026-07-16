@@ -2,17 +2,35 @@ const InventoryItem = require('../models/InventoryItem');
 const { syncExpiryNotificationsForUser } = require('../services/expiryNotificationService');
 
 function getListFilter(user) {
-  if (user.role === 'manager' && user.teamId) {
-    return { teamId: user.teamId };
+  if (user.role === 'manager') {
+    const mId = user.businessId || user.teamId;
+    return {
+      $or: [
+        { ownerId: mId, ownerType: 'business' },
+        { teamId: mId }
+      ]
+    };
   }
-  return { userId: user._id };
+  if (user.role === 'farmer') {
+    return { ownerId: user.farmId, ownerType: 'farm' };
+  }
+  return {
+    $or: [
+      { ownerId: user._id, ownerType: 'consumer' },
+      { userId: user._id }
+    ]
+  };
 }
 
 function canAccessItem(user, item) {
-  if (user.role === 'manager' && user.teamId && item.teamId?.toString() === user.teamId) {
-    return true;
+  if (user.role === 'manager') {
+    const mId = user.businessId?.toString() || user.teamId?.toString();
+    return (item.ownerType === 'business' && item.ownerId?.toString() === mId) || (item.teamId?.toString() === mId);
   }
-  return item.userId.toString() === user._id;
+  if (user.role === 'farmer') {
+    return item.ownerType === 'farm' && item.ownerId?.toString() === user.farmId?.toString();
+  }
+  return (item.ownerType === 'consumer' && item.ownerId?.toString() === user._id.toString()) || (item.userId?.toString() === user._id.toString());
 }
 
 async function list(req, res, next) {
@@ -45,6 +63,17 @@ async function create(req, res, next) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    let ownerType = 'consumer';
+    let ownerId = req.user._id;
+
+    if (req.user.role === 'manager') {
+      ownerType = 'business';
+      ownerId = req.user.businessId || req.user.teamId;
+    } else if (req.user.role === 'farmer') {
+      ownerType = 'farm';
+      ownerId = req.user.farmId;
+    }
+
     const item = await InventoryItem.create({
       foodName,
       category,
@@ -58,6 +87,8 @@ async function create(req, res, next) {
       ownerId: req.user._id,
       ownerType: req.user.role === 'manager' ? 'business' : req.user.role === 'farmer' ? 'farm' : 'consumer',
       teamId: req.user.teamId || null,
+      ownerId,
+      ownerType,
     });
 
     await syncExpiryNotificationsForUser(req.user._id);
