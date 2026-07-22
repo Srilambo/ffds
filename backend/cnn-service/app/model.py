@@ -8,9 +8,10 @@ from pathlib import Path
 import numpy as np  # type: ignore
 from PIL import Image  # type: ignore
 from .food_classifier import classify_food
+from .keras_loader import safe_load_model
 
 # -- Paths ----------------------------------------------------------------------
-MODEL_PATH = os.getenv("MODEL_PATH", "./model/ffds_model.h5")
+MODEL_PATH = os.getenv("MODEL_PATH", "./model/ffds_mobilenetv2.h5")
 CLASS_NAMES_PATH = os.getenv(
     "CLASS_NAMES_PATH",
     str(Path(MODEL_PATH).parent / "class_names.json"),
@@ -38,6 +39,31 @@ def _load_class_names() -> list[str]:
     return _DEFAULT_CLASS_NAMES
 
 
+def _build_freshness_model():
+    """Rebuild the MobileNetV2 freshness classifier used during training."""
+    import tensorflow as tf  # type: ignore
+    from tensorflow.keras.applications import MobileNetV2  # type: ignore
+    from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D  # type: ignore
+    from tensorflow.keras.models import Model  # type: ignore
+
+    base_model = MobileNetV2(
+        input_shape=(224, 224, 3),
+        include_top=False,
+        weights="imagenet",
+    )
+    base_model.trainable = True
+    for layer in base_model.layers[:-30]:
+        layer.trainable = False
+
+    x = base_model.output
+    x = GlobalAveragePooling2D()(x)
+    x = Dropout(0.3)(x)
+    x = Dense(128, activation="relu")(x)
+    x = Dropout(0.2)(x)
+    outputs = Dense(len(_class_names), activation="softmax")(x)
+    return Model(inputs=base_model.input, outputs=outputs)
+
+
 def load_model():
     """Load the Keras model on startup."""
     global _model, _model_loaded, _class_names
@@ -45,25 +71,31 @@ def load_model():
     if _model is not None:
         return _model
 
-    # Always load class names (may be updated independently)
     _class_names = _load_class_names()
 
     try:
-        import tensorflow as tf
-
         if os.path.exists(MODEL_PATH):
             print(f"[model] Loading trained model from {MODEL_PATH}...")
-            _model = tf.keras.models.load_model(MODEL_PATH)
-            _model_loaded = True
-            print(f"[model] [OK] Model loaded - classes: {_class_names}")
+            _model = safe_load_model(
+                MODEL_PATH,
+                rebuild_fn=_build_freshness_model,
+                label="freshness model",
+            )
+            _model_loaded = _model is not None
+            if _model_loaded:
+                print(f"[model] [OK] Model loaded - classes: {_class_names}")
+            else:
+                print("[model] [WARN] Trained weights unavailable - using untrained fallback.")
+                _model = _create_fallback_model()
+                _model_loaded = True
         else:
             print(f"[model] [WARN] No model file at {MODEL_PATH} - using fallback.")
             _model = _create_fallback_model()
             _model_loaded = True
     except Exception as exc:
         print(f"[model] [ERROR] Failed to load model: {exc}")
-        _model = None
-        _model_loaded = False
+        _model = _create_fallback_model()
+        _model_loaded = True
 
     return _model
 

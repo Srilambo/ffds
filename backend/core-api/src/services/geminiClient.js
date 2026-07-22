@@ -5,7 +5,18 @@ const MODEL_NAME = 'gemini-2.0-flash';
 
 const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
 
+// The EXACT 10 food classes the CNN model was trained on (Kaggle dataset)
+// Fruits: FreshApple, FreshBanana, FreshMango, FreshOrange, FreshStrawberry + Rotten variants
+// Vegetables: FreshBellpepper, FreshCarrot, FreshCucumber, FreshPotato, FreshTomato + Rotten variants
+const DATASET_FOOD_CLASSES = [
+  'Apple', 'Banana', 'Mango', 'Orange', 'Strawberry',
+  'Bellpepper', 'Carrot', 'Cucumber', 'Potato', 'Tomato'
+];
+
+const DATASET_FOOD_CLASSES_SET = new Set(DATASET_FOOD_CLASSES.map(c => c.toLowerCase()));
+
 const DATASET_CLASS_NAMES = {
+  // Exact dataset class names (10 classes from Kaggle Fruits & Vegetables Dataset)
   apple: 'Apple',
   banana: 'Banana',
   mango: 'Mango',
@@ -27,56 +38,115 @@ function normalizeFoodTypeName(name) {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+/**
+ * Returns true only if the name is one of the 10 FFDS dataset classes.
+ * Used to validate Gemini Vision output against trained model classes.
+ */
+function isDatasetClass(name) {
+  return DATASET_FOOD_CLASSES_SET.has((name || '').toLowerCase().trim());
+}
+
 function isGenericFoodLabel(name) {
   return GENERIC_FOOD_LABELS.includes((name || '').toLowerCase().trim());
 }
 
 /**
- * Resolve food name: CNN model first, then Gemini vision if still generic.
+ * Resolve food name using cross-validation between Gemini Vision and CNN/ImageNet.
+ *
+ * Strategy:
+ *  1. Ask Gemini Vision first (accurate pixel-level analysis from actual image)
+ *  2. If Gemini succeeds → always use it (Gemini reads the actual pixels)
+ *  3. If Gemini fails and CNN is NOT mock → use CNN result
+ *  4. If both fail → 'Food Item' fallback
+ *
+ * IMPORTANT: When CNN is in mock mode (isMock: true), its foodType is randomly
+ * generated from file size — it does NOT reflect the actual image content.
+ * In that case we MUST rely on Gemini Vision only.
  */
-async function resolveFoodType(imageBuffer, mimeType, cnnFoodType) {
-  let resolved = normalizeFoodTypeName(cnnFoodType || 'Food Item');
+async function resolveFoodType(imageBuffer, mimeType, cnnInput) {
+  const isMockCnn = typeof cnnInput === 'object' && cnnInput?.isMock === true;
+  const rawFoodType = typeof cnnInput === 'object' ? cnnInput?.foodType : cnnInput;
+  const cnnResolved = normalizeFoodTypeName(rawFoodType || 'Food Item');
+  // Treat CNN result as generic if it is a mock (random) or is a generic label
+  const cnnIsGeneric = isMockCnn || isGenericFoodLabel(cnnResolved);
 
-  if (!isGenericFoodLabel(resolved)) {
-    return resolved;
-  }
+  let geminiResult = null;
 
-  try {
-    const identified = await identifyFoodFromImage(imageBuffer, mimeType);
-    const normalized = normalizeFoodTypeName(identified);
-    if (!isGenericFoodLabel(normalized)) {
-      return normalized;
+  // Step 1: Always try Gemini Vision when image is available — it reads actual pixels
+  if (imageBuffer) {
+    try {
+      const identified = await identifyFoodFromImage(imageBuffer, mimeType);
+      const normalized = normalizeFoodTypeName(identified);
+      if (!isGenericFoodLabel(normalized)) {
+        geminiResult = normalized;
+      }
+    } catch (err) {
+      console.warn('[resolveFoodType] Gemini Vision failed:', err.message);
     }
-  } catch (err) {
-    console.warn('Gemini food identification failed:', err.message);
   }
 
-  return resolved;
+  // Step 2: If Gemini succeeded, always use it (it saw the actual image)
+  if (geminiResult) {
+    if (!cnnIsGeneric && geminiResult.toLowerCase() !== cnnResolved.toLowerCase()) {
+      console.log(`[resolveFoodType] Gemini="${geminiResult}" vs CNN="${cnnResolved}" → using Gemini (actual image analysis)`);
+    } else {
+      console.log(`[resolveFoodType] ✓ Gemini result: "${geminiResult}"${isMockCnn ? ' (CNN was mock/random)' : ''}`);
+    }
+    return geminiResult;
+  }
+
+  // Step 3: Gemini failed — fallback to CNN only if it is NOT a mock result
+  if (!cnnIsGeneric) {
+    console.log(`[resolveFoodType] Gemini failed, fallback to CNN: "${cnnResolved}"`);
+    return cnnResolved;
+  }
+
+  // Step 4: Both failed — return generic placeholder
+  console.log('[resolveFoodType] Both Gemini and CNN failed, returning Food Item');
+  return 'Food Item';
 }
 
 /**
- * Use Gemini vision to identify the real food in the uploaded image.
- * Called when the CNN fallback returns a generic label like "Detected Item".
- * Returns a plain string e.g. "Apple", "Banana", "Tomato".
+ * Use Gemini Vision to identify the exact food item in the image.
+ * STRICTLY constrained to the 10 FFDS dataset classes:
+ *   Fruits:     Apple, Banana, Mango, Orange, Strawberry
+ *   Vegetables: Bellpepper, Carrot, Cucumber, Potato, Tomato
+ * Returns a plain string matching one of the 10 dataset class names.
  */
 async function identifyFoodFromImage(imageBuffer, mimeType) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
   try {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const result = await model.generateContent([
-      `You are a food recognition expert. Carefully examine this image and identify the single food item shown.
+      `You are a food image classifier for the FFDS system. Look at this image and identify the food.
 
-Look closely at:
-- The shape (round, elongated, irregular)
-- The size cues in the image
-- The colour (inside and outside if visible)
-- The texture and surface (smooth skin, rough skin, leafy)
-- Any distinctive features (seeds visible, stem, leaves attached)
+This system ONLY handles these 10 specific food items. You MUST choose from exactly this list:
 
-Common foods to consider (prioritize these dataset classes):
-Apple, Banana, Mango, Orange, Strawberry, Bellpepper, Carrot, Cucumber, Potato, Tomato.
-Also: Broccoli, Potato, Onion, Lemon, Grape, Watermelon, Pineapple, Avocado, Pear, Peach, Cherry, Blueberry, Lettuce, Spinach, Corn, Garlic.
+FRUITS:
+- Apple: Round fruit, smooth waxy skin, red/green/yellow color, small stem at top, dimple at both ends
+- Banana: Long, curved, yellow fruit with elongated shape
+- Mango: Kidney/oval shaped fruit, smooth skin, yellow-orange-red gradient, tropical, has a stem at one end
+- Orange: Round citrus fruit, textured/bumpy orange-colored peel all over
+- Strawberry: Small heart-shaped red fruit with tiny yellow seeds on the surface, short green leafy cap at top
 
-IMPORTANT: Reply with ONLY the single food item name in English. Do not add any other words, punctuation, or explanation.`,
+VEGETABLES:
+- Bellpepper: Blocky bell-shaped vegetable with 3-4 lobes at the bottom, green/red/yellow color
+- Carrot: Long, thin, tapered, bright orange root vegetable
+- Cucumber: Long, cylindrical, smooth dark green skin vegetable
+- Potato: Irregular oval, rough brown/beige skin with small "eye" indentations
+- Tomato: Round, smooth shiny red skin, green star-shaped stem on top
+
+IMPORTANT RULES:
+1. You MUST reply with ONLY ONE word from this exact list: Apple, Banana, Mango, Orange, Strawberry, Bellpepper, Carrot, Cucumber, Potato, Tomato
+2. No other words, no sentences, no punctuation.
+3. If the image shows strawberries (small red heart-shaped fruits with tiny seeds) → answer: Strawberry
+4. If the image shows tomatoes (round red smooth fruit with green star stem) → answer: Tomato
+5. If the image shows oranges (round bumpy orange citrus) → answer: Orange
+6. If you are unsure, pick the CLOSEST match from the 10 options above.
+
+What food is in this image? (one word only)`,
       {
         inlineData: {
           mimeType: mimeType || 'image/jpeg',
@@ -84,13 +154,21 @@ IMPORTANT: Reply with ONLY the single food item name in English. Do not add any 
         },
       },
     ]);
-    const identified = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
-    // Take only the first word/two words in case Gemini returns extra text
-    const words = identified.split(/\s+/).slice(0, 2).join(' ');
-    return words || 'Food Item';
-  } catch (err) {
-    console.error('Gemini identifyFoodFromImage failed:', err.message);
+    const raw = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
+    // Take only the first word — Gemini should return exactly one word
+    const word = raw.split(/\s+/)[0];
+    const normalized = normalizeFoodTypeName(word);
+    console.log(`[identifyFoodFromImage] Gemini raw: "${raw}" → normalized: "${normalized}" → dataset valid: ${isDatasetClass(normalized)}`);
+    // Only accept if it's a valid dataset class name
+    if (isDatasetClass(normalized)) {
+      return normalized;
+    }
+    // If Gemini returned something outside the 10 classes, log it and return null
+    console.warn(`[identifyFoodFromImage] "${normalized}" is NOT a dataset class — rejecting`);
     return 'Food Item';
+  } catch (err) {
+    console.error('[identifyFoodFromImage] Gemini failed:', err.message);
+    throw err; // Re-throw so resolveFoodType can fall back to CNN
   }
 }
 
@@ -371,6 +449,210 @@ async function publicChatbot({ question, history = [] }) {
   }
 }
 
+function buildCombinedAdvisorPrompt({
+  actionType,
+  foodType,
+  verdict,
+  confidence,
+  batchSize,
+  qualityScore,
+  freshPct,
+  borderlinePct,
+  spoiledPct,
+  inventorySummary,
+  userLanguage = 'English',
+  predictedDaysLeft,
+  tempC,
+  humidityPct,
+  matchedAllergen,
+}) {
+  let actionAdvicePrompt = '';
+  if (actionType === 'batch_scan') {
+    actionAdvicePrompt = `If actionType is "batch_scan":
+Batch size: ${batchSize || 0} items, quality score: ${qualityScore || 0}% (${freshPct || 0}% fresh / ${borderlinePct || 0}% borderline / ${spoiledPct || 0}% spoiled)
+Advise on: (1) sell now vs. wait, (2) transport/storage handling to reduce further loss, (3) one tip to improve the next harvest.`;
+  } else if (actionType === 'single_scan' || actionType === 'inventory_check') {
+    actionAdvicePrompt = `If actionType is "single_scan" or "inventory_check":
+Current inventory context: ${inventorySummary || 'No specific inventory context provided.'}
+Advise on: (1) immediate action for this item, (2) whether this suggests a recurring supplier/storage issue, (3) one cost-saving or compliance tip.`;
+  } else if (actionType === 'marketplace') {
+    actionAdvicePrompt = `If actionType is "marketplace":
+Advise on: (1) fair pricing based on quality score, (2) how to write an honest, appealing listing, or (3) how to evaluate an incoming listing/offer.`;
+  } else {
+    actionAdvicePrompt = `Context of this interaction: ${actionType}
+Advise on immediate action, storage/handling, and cost-efficiency.`;
+  }
+
+  const allergenNotice = (matchedAllergen && matchedAllergen !== 'None' && matchedAllergen.trim() !== '')
+    ? `Important: this item matches an allergen on the user's saved profile: ${matchedAllergen}. Clearly flag this warning before any other advice.`
+    : 'No matched allergen on saved profile.';
+
+  return `You are a food supply chain advisor for a combined farmer and business account on a food freshness platform. This user can act as both a producer (growing/harvesting food) and a business (managing inventory, reducing waste, and selling/buying produce).
+
+Context of this interaction: ${actionType}
+
+${foodType || 'Food item'} was scanned, classified as ${verdict || 'Unknown'} with ${confidence || 0}% confidence.
+
+${actionAdvicePrompt}
+
+Always respond in ${userLanguage}, practical and direct tone, under 150 words. Do not exaggerate quality beyond what the data supports.
+
+Additionally, this item has a predicted shelf life of ${predictedDaysLeft ?? 'N/A'} days based on current storage conditions (${tempC ?? 'N/A'}°C, ${humidityPct ?? 'N/A'}% humidity). Mention this naturally and suggest one action to extend it if applicable.
+
+${allergenNotice}`;
+}
+
+function getMockCombinedAdvisorAdvice({
+  actionType,
+  foodType,
+  verdict,
+  confidence,
+  batchSize,
+  qualityScore,
+  freshPct,
+  borderlinePct,
+  spoiledPct,
+  inventorySummary,
+  predictedDaysLeft,
+  tempC,
+  humidityPct,
+  matchedAllergen,
+}) {
+  const allergenPrefix = (matchedAllergen && matchedAllergen !== 'None' && matchedAllergen.trim() !== '')
+    ? `⚠️ ALLERGEN WARNING: This item matches your saved profile allergen: ${matchedAllergen}.\n\n`
+    : '';
+
+  const shelfLifeText = predictedDaysLeft !== undefined
+    ? `Current storage at ${tempC ?? 20}°C and ${humidityPct ?? 65}% humidity gives a predicted shelf life of ${predictedDaysLeft} days. Lower storage temp by 3–5°C to extend shelf life further.`
+    : '';
+
+  if (actionType === 'batch_scan') {
+    return `${allergenPrefix}1. Sell/Hold: Quality score is ${qualityScore || 70}%. Sell borderline stock (${borderlinePct || 20}%) immediately; hold or store fresh stock (${freshPct || 80}%).\n2. Storage & Transport: Maintain cool, well-ventilated transport to prevent heat decay.\n3. Harvest Tip: Harvest in cool early morning hours to preserve freshness.\n${shelfLifeText}`;
+  } else if (actionType === 'single_scan' || actionType === 'inventory_check') {
+    return `${allergenPrefix}1. Immediate Action: Prioritize this ${verdict || 'scanned'} ${foodType || 'item'} for FIFO usage or immediate discount sale.\n2. Supplier/Storage Issue: Check cold room humidity control if rot is localized.\n3. Cost-Saving Tip: Separate ethylene-producing items from sensitive produce.\n${shelfLifeText}`;
+  } else {
+    return `${allergenPrefix}1. Pricing: Price fairly based on ${qualityScore || 80}% quality rating.\n2. Listing: Market honestly as Grade-A fresh produce with explicit expiry metrics.\n3. Negotiation: Leverage clean freshness ratings to command top tier wholesale pricing.\n${shelfLifeText}`;
+  }
+}
+
+async function explainCombinedAdvisor(params) {
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const prompt = buildCombinedAdvisorPrompt(params);
+
+    const result = await model.generateContent([{ text: prompt }]);
+    return result.response.text();
+  } catch (err) {
+    console.warn(`[Gemini API] explainCombinedAdvisor failed: ${err.message}. Returning fallback advice.`);
+    return getMockCombinedAdvisorAdvice(params);
+  }
+}
+
+function parseJsonFromText(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json/, '').replace(/```$/, '').trim();
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```/, '').replace(/```$/, '').trim();
+  }
+  return JSON.parse(cleaned);
+}
+
+function getFallbackRecipes(ingredients) {
+  const ingList = Array.isArray(ingredients) && ingredients.length > 0 ? ingredients : ['Fresh Produce'];
+  const primary = ingList[0] || 'Produce';
+  const secondary = ingList[1] || '';
+  const third = ingList[2] || '';
+
+  const recipeList = [
+    {
+      name: `Sautéed ${primary} & Seasoned Skillet`,
+      time: '15 min',
+      difficulty: 'Easy',
+      uses: [primary, secondary, 'Olive Oil', 'Garlic', 'Salt'].filter(Boolean),
+      icon: '🍳',
+      steps: [
+        `Dice the fresh ${primary} ${secondary ? 'and ' + secondary : ''} into uniform bite-sized pieces.`,
+        'Heat 1 tbsp of olive oil or butter in a skillet over medium heat.',
+        `Add minced garlic and sauté ${primary} for 6-8 minutes until tender and fragrant.`,
+        'Season with salt, pepper, and serve hot as a zero-waste side dish.'
+      ]
+    },
+    {
+      name: `Fresh ${primary} Garden Salad`,
+      time: '10 min',
+      difficulty: 'Easy',
+      uses: [primary, secondary, third, 'Lemon Juice', 'Black Pepper'].filter(Boolean),
+      icon: '🥗',
+      steps: [
+        `Thoroughly wash and slice ${primary} ${secondary ? 'and ' + secondary : ''}.`,
+        'Toss gently in a bowl with a drizzle of olive oil, fresh lemon juice, salt, and coarse pepper.',
+        'Garnish with fresh herbs or seeds if available and serve chilled.'
+      ]
+    },
+    {
+      name: `Zero-Waste ${primary} Warm Soup`,
+      time: '25 min',
+      difficulty: 'Medium',
+      uses: [primary, secondary, 'Vegetable Broth', 'Onion', 'Salt'].filter(Boolean),
+      icon: '🍲',
+      steps: [
+        `Roughly chop ${primary} ${secondary ? 'and ' + secondary : ''}.`,
+        'Sauté onions in a pot, add chopped produce and vegetable broth or water.',
+        'Simmer for 15-20 minutes until tender, then blend smooth and season to taste.'
+      ]
+    }
+  ];
+
+  return recipeList;
+}
+
+async function generateRecipesWithGemini({ ingredients = [], language = 'en' }) {
+  if (!ingredients || ingredients.length === 0) {
+    return getFallbackRecipes(['Fresh Produce']);
+  }
+
+  const ingNames = ingredients.map(i => (typeof i === 'string' ? i : i.foodName || i.name)).filter(Boolean);
+  if (ingNames.length === 0) return getFallbackRecipes(['Fresh Produce']);
+
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn('[generateRecipesWithGemini] No GEMINI_API_KEY, returning tailored fallback recipes');
+    return getFallbackRecipes(ingNames);
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const prompt = `You are an expert zero-waste AI chef.
+The user currently has these active food ingredients in their fridge/pantry: ${ingNames.join(', ')}.
+
+Generate 3 to 4 creative, practical zero-waste recipe ideas specifically centered around using these exact fridge ingredients.
+
+Respond ONLY with a valid JSON array. Do not include markdown tags like \`\`\`json.
+JSON structure:
+[
+  {
+    "name": "Recipe Name",
+    "time": "15 min",
+    "difficulty": "Easy",
+    "uses": ["Ingredient 1", "Ingredient 2"],
+    "icon": "🍳",
+    "steps": ["Step 1", "Step 2", "Step 3"]
+  }
+]`;
+
+    const result = await model.generateContent([{ text: prompt }]);
+    const responseText = result.response.text();
+    const recipes = parseJsonFromText(responseText);
+    if (Array.isArray(recipes) && recipes.length > 0) {
+      return recipes;
+    }
+    return getFallbackRecipes(ingNames);
+  } catch (err) {
+    console.warn(`[generateRecipesWithGemini] Gemini error: ${err.message}. Returning tailored fallback recipes.`);
+    return getFallbackRecipes(ingNames);
+  }
+}
+
 module.exports = {
   identifyFoodFromImage,
   explainScan,
@@ -379,4 +661,10 @@ module.exports = {
   isGenericFoodLabel,
   normalizeFoodTypeName,
   publicChatbot,
+  buildCombinedAdvisorPrompt,
+  explainCombinedAdvisor,
+  getMockCombinedAdvisorAdvice,
+  generateRecipesWithGemini,
 };
+
+

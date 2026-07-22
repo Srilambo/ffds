@@ -27,13 +27,10 @@ function saveImage(buffer, mimetype) {
 
 async function getDashboard(req, res, next) {
   try {
-    const farmId = req.user.farmId;
-    if (!farmId) {
-      return res.status(400).json({ error: 'Farmer has no farm assigned' });
-    }
+    const farmId = req.user.farmId || req.user.businessId || req.user.teamId || req.user._id;
 
-    const batches = await Batch.find({ farmerId: farmId }).sort({ createdAt: -1 });
-    const scans = await Scan.find({ farmId }).sort({ createdAt: -1 });
+    const batches = await Batch.find({ $or: [{ farmerId: farmId }, { farmerId: req.user._id }] }).sort({ createdAt: -1 });
+    const scans = await Scan.find({ $or: [{ farmId }, { userId: req.user._id }] }).sort({ createdAt: -1 });
     
     // Calculate average quality score
     const avgQualityScore = batches.length > 0
@@ -77,10 +74,7 @@ async function getDashboard(req, res, next) {
 
 async function batchScan(req, res, next) {
   try {
-    const farmId = req.user.farmId;
-    if (!farmId) {
-      return res.status(400).json({ error: 'Farmer has no farm assigned' });
-    }
+    const farmId = req.user.farmId || req.user.businessId || req.user.teamId || req.user._id;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'At least one image required' });
@@ -276,10 +270,7 @@ async function getCalendar(req, res, next) {
 
 async function logLoss(req, res, next) {
   try {
-    const farmId = req.user.farmId;
-    if (!farmId) {
-      return res.status(400).json({ error: 'Farmer has no farm assigned' });
-    }
+    const farmId = req.user.farmId || req.user.businessId || req.user.teamId || req.user._id;
 
     const { harvestDate, foodType, harvestedQty, soldQty, wastedQty, unit, estimatedCostPerUnit, currency = 'USD', reason } = req.body;
 
@@ -341,8 +332,8 @@ async function logLoss(req, res, next) {
 
 async function getLossHistory(req, res, next) {
   try {
-    const farmId = req.user.farmId;
-    const wasteLogs = await WasteLog.find({ ownerType: 'farm', ownerId: farmId })
+    const farmId = req.user.farmId || req.user.businessId || req.user.teamId || req.user._id;
+    const wasteLogs = await WasteLog.find({ $or: [{ ownerId: farmId }, { userId: req.user._id }] })
       .sort({ createdAt: -1 });
 
     // Calculate financial loss by month
@@ -370,8 +361,7 @@ async function getLossHistory(req, res, next) {
 
 async function generateBuyerReport(req, res, next) {
   try {
-    const farmId = req.user.farmId;
-    const batch = await Batch.findOne({ _id: req.params.batchId, farmerId: farmId });
+    const batch = await Batch.findById(req.params.batchId);
     if (!batch) {
       return res.status(404).json({ error: 'Batch not found' });
     }

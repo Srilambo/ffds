@@ -2,14 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../api/axiosClient';
 import ScanResult from '../../components/ScanResult';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const CATEGORIES = ['fruit', 'vegetable', 'dairy', 'bakery', 'other', 'meat', 'bread'];
 const STATUSES = ['active', 'consumed', 'wasted'];
 
-// ============================================
-// SHARED HELPERS (moved to top for hoisting)
-// ============================================
 const STATUS_CONFIG = {
   active:   { cls: 'bg-brand-500/15 text-brand-400 border-brand-500/30', label: 'Active' },
   consumed: { cls: 'bg-slate-500/15 text-slate-400 border-slate-500/30', label: 'Consumed' },
@@ -24,12 +21,14 @@ function formatCurrency(value) {
 
 function StatCard({ icon, title, value, sub, color }) {
   return (
-    <div className={`glass bg-gradient-to-br ${color} border p-5 rounded-2xl flex flex-col gap-2`}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-70">
+    <div className={`glass bg-gradient-to-br ${color} border p-5 rounded-2xl flex flex-col justify-between space-y-2 card-hover transition-all`}>
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
         <span>{icon}</span> {title}
       </div>
-      <div className="text-3xl font-black text-white">{value}</div>
-      {sub && <span className="text-[10px] opacity-60">{sub}</span>}
+      <div>
+        <div className="text-3xl font-black text-white tracking-tight">{value}</div>
+        {sub && <p className="text-[10px] opacity-70 mt-0.5 font-mono">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -42,10 +41,16 @@ export function ManagerInventory() {
   const [items, setItems] = useState([]);
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
-    foodName: '', category: 'fruit', quantity: 1,
-    unit: 'pcs', purchaseDate: new Date().toISOString().split('T')[0], expiryDate: '', location: 'warehouse',
+    foodName: '',
+    category: 'fruit',
+    quantity: 1,
+    unit: 'pcs',
+    purchaseDate: new Date().toISOString().split('T')[0],
+    expiryDate: '',
+    location: 'warehouse',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,10 +62,14 @@ export function ManagerInventory() {
       if (status) params.status = status;
       const res = await api.get('/manager/inventory', { params });
       setItems(res.data);
-    } catch { setError(t('inventory.error')); }
+    } catch {
+      setError(t('inventory.error', 'Failed to load inventory data'));
+    }
   };
 
-  useEffect(() => { load(); }, [category, status]);
+  useEffect(() => {
+    load();
+  }, [category, status]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -72,14 +81,32 @@ export function ManagerInventory() {
         expiryDate: new Date(form.expiryDate).toISOString(),
       });
       setShowForm(false);
-      setForm({ foodName: '', category: 'fruit', quantity: 1, unit: 'pcs', purchaseDate: new Date().toISOString().split('T')[0], expiryDate: '', location: 'warehouse' });
+      setForm({
+        foodName: '',
+        category: 'fruit',
+        quantity: 1,
+        unit: 'pcs',
+        purchaseDate: new Date().toISOString().split('T')[0],
+        expiryDate: '',
+        location: 'warehouse',
+      });
       load();
-    } catch { setError(t('inventory.error')); }
-    finally { setLoading(false); }
+    } catch {
+      setError(t('inventory.error', 'Failed to save item'));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdate = async (id, data) => { await api.patch(`/manager/inventory/${id}`, data); load(); };
-  const handleDelete = async (id) => { await api.delete(`/manager/inventory/${id}`); load(); };
+  const handleUpdate = async (id, data) => {
+    await api.patch(`/manager/inventory/${id}`, data);
+    load();
+  };
+
+  const handleDelete = async (id) => {
+    await api.delete(`/manager/inventory/${id}`);
+    load();
+  };
 
   const handleImport = async (e) => {
     const file = e.target.files[0];
@@ -87,9 +114,10 @@ export function ManagerInventory() {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await api.post('/manager/inventory/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      alert(`${res.data.inserted} items added, ${res.data.skipped} skipped`);
-      if (res.data.errors.length) console.log('Errors:', res.data.errors);
+      const res = await api.post('/manager/inventory/import', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      alert(`${res.data.inserted} items inserted successfully, ${res.data.skipped} skipped.`);
       load();
     } catch (err) {
       alert(err.response?.data?.error || 'Import failed');
@@ -97,164 +125,290 @@ export function ManagerInventory() {
     e.target.value = '';
   };
 
+  const filteredItems = items.filter((item) =>
+    item.foodName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const activeCount = items.filter((i) => i.status === 'active').length;
+  const consumedCount = items.filter((i) => i.status === 'consumed').length;
+  const wastedCount = items.filter((i) => i.status === 'wasted').length;
+
   return (
     <div className="space-y-6 fade-up">
-      {/* Header */}
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('nav.inventory')}</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage business stock, bulk import, track expiry</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <span>🍎</span> Stock Control & Inventory
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Enterprise business inventory, bulk CSV imports, & real-time expiry alerts.
+          </p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-glow px-5 py-2.5 rounded-xl text-white text-sm font-semibold flex items-center gap-2 self-start sm:self-auto">
-          {showForm ? '✕ Cancel' : `+ ${t('inventory.addItem')}`}
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Items', value: items.length, color: 'text-white', bg: 'bg-white/5' },
-          { label: 'Active', value: items.filter(i => i.status === 'active').length, color: 'text-brand-400', bg: 'bg-brand-500/10' },
-          { label: 'Consumed', value: items.filter(i => i.status === 'consumed').length, color: 'text-slate-400', bg: 'bg-white/3' },
-          { label: 'Wasted', value: items.filter(i => i.status === 'wasted').length, color: 'text-red-400', bg: 'bg-red-500/10' },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`glass ${bg} p-4 text-center card-hover`}>
-            <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Import CSV */}
-      <div className="glass p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl">
-        <div className="flex items-center gap-3">
-          <span className="text-amber-400">📥</span>
-          <span className="text-sm font-medium text-amber-300">Bulk Import CSV</span>
-          <input type="file" accept=".csv" onChange={handleImport} className="hidden" id="csv-import" />
-          <label htmlFor="csv-import" className="btn-glow px-4 py-2 rounded-lg text-white text-sm font-semibold">Select CSV</label>
-          <p className="text-xs text-slate-500 ml-auto">Columns: foodName, category, quantity, unit, purchaseDate, expiryDate, location</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className="input-dark px-3 py-2 text-sm rounded-lg">
-          <option value="">{t('inventory.filter.category')}</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{t(`inventory.category.${c}`)}</option>)}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="input-dark px-3 py-2 text-sm rounded-lg">
-          <option value="">{t('inventory.filter.status')}</option>
-          {STATUSES.map(s => <option key={s} value={s}>{t(`inventory.status.${s}`)}</option>)}
-        </select>
-        {(category || status) && (
-          <button onClick={() => { setCategory(''); setStatus(''); }}
-            className="px-3 py-2 text-xs text-slate-400 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-all">
-            ✕ Clear filters
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="btn-glow px-4 py-2.5 rounded-xl text-white text-xs font-semibold flex items-center gap-2"
+          >
+            {showForm ? '✕ Cancel' : '+ Add New Item'}
           </button>
-        )}
+        </div>
       </div>
 
-      {error && <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-red-400 text-sm">⚠️ {error}</div>}
+      {/* Stats row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col justify-between">
+          <span className="text-[10px] uppercase font-bold text-slate-400">Total Items</span>
+          <p className="text-2xl font-black text-white mt-1">{items.length}</p>
+        </div>
+        <div className="glass p-4 rounded-2xl border border-brand-500/20 bg-brand-500/5 flex flex-col justify-between">
+          <span className="text-[10px] uppercase font-bold text-brand-400">Active Stock</span>
+          <p className="text-2xl font-black text-brand-400 mt-1">{activeCount}</p>
+        </div>
+        <div className="glass p-4 rounded-2xl border border-slate-500/20 bg-slate-500/5 flex flex-col justify-between">
+          <span className="text-[10px] uppercase font-bold text-slate-400">Consumed</span>
+          <p className="text-2xl font-black text-slate-300 mt-1">{consumedCount}</p>
+        </div>
+        <div className="glass p-4 rounded-2xl border border-red-500/20 bg-red-500/5 flex flex-col justify-between">
+          <span className="text-[10px] uppercase font-bold text-red-400">Wasted</span>
+          <p className="text-2xl font-black text-red-400 mt-1">{wastedCount}</p>
+        </div>
+      </div>
 
-      {/* Add Form */}
+      {/* Bulk CSV Import Banner */}
+      <div className="glass p-4 border border-amber-500/20 bg-amber-500/5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg">
+            📥
+          </div>
+          <div>
+            <p className="text-xs font-bold text-amber-300">Bulk Stock CSV Import</p>
+            <p className="text-[11px] text-slate-400 font-mono">
+              Columns: foodName, category, quantity, unit, purchaseDate, expiryDate, location
+            </p>
+          </div>
+        </div>
+        <div>
+          <input type="file" accept=".csv" onChange={handleImport} className="hidden" id="csv-import-file" />
+          <label
+            htmlFor="csv-import-file"
+            className="btn-glow px-4 py-2 rounded-xl text-white text-xs font-semibold cursor-pointer inline-block"
+          >
+            Select CSV File
+          </label>
+        </div>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="glass p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="input-dark px-3 py-2 text-xs rounded-xl"
+          >
+            <option value="">All Categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="input-dark px-3 py-2 text-xs rounded-xl"
+          >
+            <option value="">All Statuses</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          {(category || status) && (
+            <button
+              onClick={() => {
+                setCategory('');
+                setStatus('');
+              }}
+              className="px-3 py-2 text-xs text-slate-400 hover:text-white border border-white/10 rounded-xl hover:bg-white/5 transition-all"
+            >
+              ✕ Clear
+            </button>
+          )}
+        </div>
+
+        <div className="w-full md:w-64 relative">
+          <input
+            type="text"
+            placeholder="Search stock items..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-dark w-full px-3.5 py-2 text-xs rounded-xl pl-9"
+          />
+          <span className="absolute left-3 top-2.5 text-xs text-slate-500">🔍</span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Create Item Form Modal / Drawer */}
       {showForm && (
-        <div className="glass p-6 fade-up">
-          <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="h-6 w-6 rounded-md bg-brand-600/30 text-brand-400 flex items-center justify-center text-xs">+</span>
-            Add New Item
+        <div className="glass p-6 rounded-2xl border border-white/10 space-y-4 fade-up">
+          <h2 className="font-bold text-white text-base flex items-center gap-2">
+            <span>📦</span> Add New Business Inventory Record
           </h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <input value={form.foodName} onChange={(e) => setForm({...form, foodName: e.target.value})}
-              className="input-dark px-3 py-2.5 text-sm col-span-2 md:col-span-1" placeholder={t('inventory.foodName')} required />
-            <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})} className="input-dark px-3 py-2.5 text-sm">
-              {CATEGORIES.map(c => <option key={c} value={c}>{t(`inventory.category.${c}`)}</option>)}
+          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <input
+              value={form.foodName}
+              onChange={(e) => setForm({ ...form, foodName: e.target.value })}
+              className="input-dark px-3.5 py-2.5 text-xs rounded-xl"
+              placeholder="Food item name"
+              required
+            />
+            <select
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              className="input-dark px-3.5 py-2.5 text-xs rounded-xl"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c.charAt(0).toUpperCase() + c.slice(1)}
+                </option>
+              ))}
             </select>
             <div className="flex gap-2">
-              <input type="number" min="0.1" step="0.1" value={form.quantity} onChange={(e) => setForm({...form, quantity: +e.target.value})}
-                className="input-dark px-3 py-2.5 text-sm w-20" />
-              <input value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})}
-                className="input-dark px-3 py-2.5 text-sm flex-1" placeholder={t('inventory.unit')} />
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: +e.target.value })}
+                className="input-dark px-3 py-2.5 text-xs rounded-xl w-24"
+              />
+              <input
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                className="input-dark px-3 py-2.5 text-xs rounded-xl flex-1"
+                placeholder="Unit (pcs, kg)"
+              />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">{t('inventory.purchaseDate')}</label>
-              <input type="date" value={form.purchaseDate} onChange={(e) => setForm({...form, purchaseDate: e.target.value})}
-                className="input-dark px-3 py-2.5 text-sm w-full" />
+              <label className="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Purchase Date</label>
+              <input
+                type="date"
+                value={form.purchaseDate}
+                onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })}
+                className="input-dark px-3 py-2.5 text-xs rounded-xl w-full"
+              />
             </div>
             <div>
-              <label className="block text-xs text-slate-500 mb-1">{t('inventory.expiryDate')}</label>
-              <input type="date" value={form.expiryDate} onChange={(e) => setForm({...form, expiryDate: e.target.value})}
-                className="input-dark px-3 py-2.5 text-sm w-full" required />
+              <label className="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Expiry Date</label>
+              <input
+                type="date"
+                value={form.expiryDate}
+                onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
+                className="input-dark px-3 py-2.5 text-xs rounded-xl w-full"
+                required
+              />
             </div>
-            <select value={form.location} onChange={(e) => setForm({...form, location: e.target.value})} className="input-dark px-3 py-2.5 text-sm">
-              <option value="warehouse">Warehouse</option>
-              <option value="fridge">Fridge</option>
-              <option value="pantry">Pantry</option>
+            <select
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              className="input-dark px-3.5 py-2.5 text-xs rounded-xl"
+            >
+              <option value="warehouse">Warehouse 🏬</option>
+              <option value="fridge">Cold Room / Fridge 🧊</option>
+              <option value="pantry">Store Room 🗄️</option>
             </select>
-            <div className="col-span-2 md:col-span-1 flex items-end">
-              <button type="submit" disabled={loading} className="btn-glow w-full py-2.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2">
-                {loading ? <><span className="spinner" /> Saving…</> : `${t('inventory.save')} →`}
+            <div className="sm:col-span-2 lg:col-span-3 pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-glow w-full py-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-2"
+              >
+                {loading ? <span className="spinner" /> : 'Save Inventory Item'}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Inventory List */}
-      <div className="glass overflow-hidden">
+      {/* Inventory Table */}
+      <div className="glass rounded-2xl overflow-hidden border border-white/10">
         <div className="overflow-x-auto">
-          <table className="w-full dark-table">
+          <table className="w-full text-xs">
             <thead>
-              <tr>
-                <th className="text-left">Food</th>
-                <th className="text-left hidden sm:table-cell">Category</th>
-                <th className="text-left hidden md:table-cell">Quantity</th>
-                <th className="text-left">Expiry</th>
-                <th className="text-left">Status</th>
-                <th className="text-right">Actions</th>
+              <tr className="text-[10px] text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/5">
+                <th className="text-left py-3.5 px-4">Produce Name</th>
+                <th className="text-left py-3.5 px-4 hidden sm:table-cell">Category</th>
+                <th className="text-left py-3.5 px-4 hidden md:table-cell">Quantity</th>
+                <th className="text-left py-3.5 px-4">Expiry Date</th>
+                <th className="text-left py-3.5 px-4">Status</th>
+                <th className="text-right py-3.5 px-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => {
+              {filteredItems.map((item) => {
                 const days = Math.ceil((new Date(item.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
                 const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.active;
                 return (
-                  <tr key={item._id}>
-                    <td>
+                  <tr key={item._id} className="border-b border-white/5 text-slate-300 hover:bg-white/5 transition-colors">
+                    <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
                         <span className="text-lg">{CAT_ICONS[item.category] || '📦'}</span>
-                        <span className="font-semibold text-white">{item.foodName}</span>
+                        <div>
+                          <span className="font-bold text-white text-sm capitalize">{item.foodName}</span>
+                          <p className="text-[10px] text-slate-400 capitalize">{item.location || 'warehouse'}</p>
+                        </div>
                       </div>
                     </td>
-                    <td className="hidden sm:table-cell">
-                      <span className="capitalize text-slate-400">{t(`inventory.category.${item.category}`)}</span>
+                    <td className="py-3 px-4 hidden sm:table-cell">
+                      <span className="capitalize text-slate-300 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">
+                        {item.category}
+                      </span>
                     </td>
-                    <td className="hidden md:table-cell text-slate-400 font-mono text-xs">
+                    <td className="py-3 px-4 hidden md:table-cell font-mono font-bold text-white">
                       {item.quantity} {item.unit}
                     </td>
-                    <td>
+                    <td className="py-3 px-4">
                       <div className="flex flex-col">
-                        <span className={`text-xs font-mono font-bold ${days <= 0 ? 'text-red-400' : days <= 2 ? 'text-amber-400' : 'text-slate-300'}`}>
+                        <span className={`font-mono font-bold ${days <= 0 ? 'text-red-400' : days <= 2 ? 'text-amber-400' : 'text-slate-200'}`}>
                           {new Date(item.expiryDate).toLocaleDateString()}
                         </span>
                         {days <= 3 && item.status === 'active' && (
-                          <span className={`text-[10px] mt-0.5 ${days <= 0 ? 'text-red-500' : 'text-amber-500'}`}>
+                          <span className={`text-[10px] mt-0.5 font-bold ${days <= 0 ? 'text-red-400' : 'text-amber-400'}`}>
                             {days <= 0 ? '⚠️ Expired' : `⏰ ${days}d left`}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td>
-                      <select value={item.status} onChange={(e) => handleUpdate(item._id, { status: e.target.value })}
-                        className={`text-xs px-2.5 py-1 rounded-full border font-semibold bg-transparent cursor-pointer ${cfg.cls}`}>
-                        {['active','consumed','wasted'].map(s => (
-                          <option key={s} value={s} className="bg-surface-3 text-white">{t(`inventory.status.${s}`)}</option>
+                    <td className="py-3 px-4">
+                      <select
+                        value={item.status}
+                        onChange={(e) => handleUpdate(item._id, { status: e.target.value })}
+                        className={`text-[11px] px-2.5 py-1 rounded-full border font-bold bg-transparent cursor-pointer ${cfg.cls}`}
+                      >
+                        {STATUSES.map((s) => (
+                          <option key={s} value={s} className="bg-slate-900 text-white">
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </option>
                         ))}
                       </select>
                     </td>
-                    <td className="text-right">
-                      <button onClick={() => handleDelete(item._id)}
-                        className="text-xs text-slate-600 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10">
-                        {t('inventory.delete')}
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        className="text-xs text-slate-500 hover:text-red-400 transition-colors px-2.5 py-1 rounded-lg hover:bg-red-500/10"
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -263,11 +417,13 @@ export function ManagerInventory() {
             </tbody>
           </table>
         </div>
-        {!items.length && (
-          <div className="glass py-16 flex flex-col items-center gap-3 text-center">
+        {!filteredItems.length && (
+          <div className="py-16 flex flex-col items-center gap-3 text-center text-slate-500">
             <span className="text-5xl">🛒</span>
-            <p className="text-white font-medium">No inventory items yet</p>
-            <p className="text-slate-500 text-sm">Add your first food item to start tracking freshness</p>
+            <p className="text-white font-bold">No inventory items</p>
+            <p className="text-xs text-slate-400 max-w-xs">
+              Add your first produce item or upload a bulk CSV spreadsheet to begin.
+            </p>
           </div>
         )}
       </div>
@@ -276,7 +432,7 @@ export function ManagerInventory() {
 }
 
 // ============================================
-// MANAGER SCAN (reuse ScanCapture logic)
+// MANAGER SCAN
 // ============================================
 export function ManagerScan() {
   const { t } = useTranslation();
@@ -287,20 +443,28 @@ export function ManagerScan() {
   const [error, setError] = useState('');
   const [showInventoryForm, setShowInventoryForm] = useState(false);
   const [invForm, setInvForm] = useState({
-    foodName: '', category: 'fruit', quantity: 1, unit: 'pcs',
-    purchaseDate: new Date().toISOString().split('T')[0], expiryDate: '', location: 'warehouse',
+    foodName: '',
+    category: 'fruit',
+    quantity: 1,
+    unit: 'pcs',
+    purchaseDate: new Date().toISOString().split('T')[0],
+    expiryDate: '',
+    location: 'warehouse',
   });
 
   const applyFile = (selected) => {
     if (!selected) return;
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
-    setScan(null); setError('');
+    setScan(null);
+    setError('');
   };
 
   const handleSubmit = async () => {
     if (!file) return;
-    setLoading(true); setError(''); setScan(null);
+    setLoading(true);
+    setError('');
+    setScan(null);
     const fd = new FormData();
     fd.append('image', file);
     try {
@@ -308,142 +472,185 @@ export function ManagerScan() {
       setScan(data);
       setError('');
     } catch (err) {
-      setError(err.response?.data?.error || t('scan.error'));
+      setError(err.response?.data?.error || 'Scan analysis failed');
       setScan(null);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddToInventory = (scanData) => {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 7);
-    setInvForm({ foodName: scanData.foodType, category: 'fruit', quantity: 1, unit: 'pcs',
-      purchaseDate: new Date().toISOString().split('T')[0], expiryDate: expiry.toISOString().split('T')[0], location: 'warehouse' });
+    setInvForm({
+      foodName: scanData.foodType,
+      category: 'fruit',
+      quantity: 1,
+      unit: 'pcs',
+      purchaseDate: new Date().toISOString().split('T')[0],
+      expiryDate: expiry.toISOString().split('T')[0],
+      location: 'warehouse',
+    });
     setShowInventoryForm(true);
   };
 
   const submitInventory = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/manager/inventory', { ...invForm, linkedScanId: scan?._id,
+      await api.post('/manager/inventory', {
+        ...invForm,
+        linkedScanId: scan?._id,
         purchaseDate: new Date(invForm.purchaseDate).toISOString(),
-        expiryDate: new Date(invForm.expiryDate).toISOString() });
+        expiryDate: new Date(invForm.expiryDate).toISOString(),
+      });
       setShowInventoryForm(false);
-    } catch { setError(t('inventory.error')); }
+    } catch {
+      setError('Failed to add to business inventory');
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="page-header animate-fade-up">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <h1>{t('scan.title')}</h1>
-            <p>Scan produce for business inventory</p>
-          </div>
-        </div>
+    <div className="space-y-6 fade-up">
+      <div>
+        <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+          <span>🔍</span> Manager Batch Audit Scanner
+        </h1>
+        <p className="text-slate-400 text-sm mt-1">
+          Perform high-speed AI audits on received shipments and add results directly to business stock.
+        </p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <div className="glass p-4 md:p-6 space-y-5 card-hover animate-fade-up delay-100">
-          <div onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); applyFile(e.dataTransfer.files[0]); }}
+        <div className="glass p-6 space-y-5 rounded-2xl border border-white/10">
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              applyFile(e.dataTransfer.files[0]);
+            }}
             className={`relative border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
-              preview ? 'py-6' : 'py-10 md:py-14'
-            } border-white/10 hover:border-brand-600/50 hover:bg-white/[0.02]`}>
+              preview ? 'py-6' : 'py-12'
+            } border-white/15 hover:border-brand-500/50 hover:bg-white/5`}
+          >
             {preview ? (
-              <div className="relative animate-scale-in">
-                <img src={preview} alt="preview" className="max-h-48 md:max-h-64 max-w-full rounded-xl shadow-lg border border-white/10" />
-                <button type="button" onClick={() => { setFile(null); setPreview(null); setScan(null); }}
-                  className="absolute -top-2 -right-2 h-7 w-7 bg-red-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-600 shadow-lg transition-transform hover:scale-110">✕</button>
+              <div className="relative">
+                <img src={preview} alt="preview" className="max-h-56 max-w-full rounded-xl shadow-lg border border-white/10" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFile(null);
+                    setPreview(null);
+                    setScan(null);
+                  }}
+                  className="absolute -top-2 -right-2 h-7 w-7 bg-red-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-600 shadow-lg"
+                >
+                  ✕
+                </button>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-4 text-center px-6">
-                <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl md:text-4xl animate-bounce-gentle">🍎</div>
+              <div className="flex flex-col items-center gap-3 text-center px-6">
+                <div className="h-16 w-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
+                  🍎
+                </div>
                 <div>
-                  <p className="text-white font-semibold text-sm md:text-base">Drop an image here</p>
-                  <p className="text-slate-500 text-xs mt-1">PNG, JPG, WEBP — max 5MB</p>
+                  <p className="text-white font-bold text-sm">Drop sample image here</p>
+                  <p className="text-slate-400 text-xs mt-0.5">Supports PNG, JPG, WEBP — Max 5MB</p>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer btn-glow text-white text-sm font-semibold">
-              📷 {t('scan.capture')}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer btn-glow text-white text-xs font-semibold">
+              📷 Capture Photo
               <input type="file" accept="image/*" capture="environment" onChange={(e) => applyFile(e.target.files[0])} className="hidden" />
             </label>
-            <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer border border-brand-600/40 text-brand-400 text-sm font-semibold hover:bg-brand-600/10 transition-all">
-              📁 {t('scan.upload')}
+            <label className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer border border-brand-500/40 text-brand-300 text-xs font-semibold hover:bg-brand-500/10 transition-all">
+              📁 Choose File
               <input type="file" accept="image/*" onChange={(e) => applyFile(e.target.files[0])} className="hidden" />
             </label>
           </div>
 
-          {error && <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm animate-shake">⚠️ {error}</div>}
+          {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-xs">⚠️ {error}</div>}
 
-          <button onClick={handleSubmit} disabled={!file || loading}
-            className="btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2">
-            {loading ? <><span className="spinner" /> {t('scan.loading')}</> : <><span>🔬</span> {t('scan.submit')}</>}
+          <button
+            onClick={handleSubmit}
+            disabled={!file || loading}
+            className="btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2"
+          >
+            {loading ? <><span className="spinner" /> Analyzing Produce...</> : <><span>🔬</span> Run CNN & Gas Telemetry</>}
           </button>
         </div>
 
-        <div className="animate-fade-up delay-200">
+        <div>
           {scan ? (
             <ScanResult scan={scan} onAddToInventory={handleAddToInventory} />
           ) : (
-            <div className="glass p-6 md:p-8 h-full min-h-[280px] flex flex-col items-center justify-center text-center space-y-4 border border-dashed border-white/10 rounded-2xl">
-              <div className="text-5xl md:text-6xl animate-float-slow">🥬</div>
+            <div className="glass p-8 h-full min-h-[300px] flex flex-col items-center justify-center text-center space-y-4 border border-dashed border-white/15 rounded-2xl">
+              <div className="text-6xl">🥬</div>
               <div>
-                <p className="text-white font-semibold">Ready to analyze</p>
-                <p className="text-slate-500 text-sm mt-1 max-w-xs">Upload a food image — the AI will detect freshness and add to business inventory</p>
+                <p className="text-white font-bold text-base">Ready for Batch Scan</p>
+                <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">
+                  Upload produce sample photos to instantly classify freshness & log gas sensor metrics.
+                </p>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Inventory Modal */}
       {showInventoryForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm drawer-overlay">
-          <div className="glass w-full sm:max-w-md p-6 shadow-2xl rounded-t-3xl sm:rounded-2xl animate-fade-up safe-bottom">
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-white text-lg">{t('result.addToInventory')}</h2>
-              <button onClick={() => setShowInventoryForm(false)} className="text-slate-500 hover:text-white text-xl">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="glass w-full max-w-md p-6 rounded-2xl border border-white/15 shadow-2xl space-y-4 fade-up">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h2 className="font-bold text-white text-base">Add Scanned Item to Stock</h2>
+              <button onClick={() => setShowInventoryForm(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
             </div>
-            <form onSubmit={submitInventory} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <input value={invForm.foodName} onChange={(e) => setInvForm({...invForm, foodName: e.target.value})}
-                  className="input-dark px-3 py-2.5 text-sm col-span-2" placeholder={t('inventory.foodName')} />
-                <select value={invForm.category} onChange={(e) => setInvForm({...invForm, category: e.target.value})} className="input-dark px-3 py-2.5 text-sm">
-                  {CATEGORIES.map(c => <option key={c} value={c}>{t(`inventory.category.${c}`)}</option>)}
+            <form onSubmit={submitInventory} className="space-y-3">
+              <input
+                value={invForm.foodName}
+                onChange={(e) => setInvForm({ ...invForm, foodName: e.target.value })}
+                className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                placeholder="Food name"
+                required
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={invForm.category}
+                  onChange={(e) => setInvForm({ ...invForm, category: e.target.value })}
+                  className="input-dark px-3 py-2 text-xs rounded-xl"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  ))}
                 </select>
-                <div className="flex gap-2">
-                  <input type="number" value={invForm.quantity} onChange={(e) => setInvForm({...invForm, quantity: +e.target.value})}
-                    className="input-dark px-3 py-2.5 text-sm w-20" />
-                  <input value={invForm.unit} onChange={(e) => setInvForm({...invForm, unit: e.target.value})}
-                    className="input-dark px-3 py-2.5 text-sm flex-1" placeholder={t('inventory.unit')} />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">{t('inventory.purchaseDate')}</label>
-                  <input type="date" value={invForm.purchaseDate} onChange={(e) => setInvForm({...invForm, purchaseDate: e.target.value})}
-                    className="input-dark px-3 py-2.5 text-sm w-full" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">{t('inventory.expiryDate')}</label>
-                  <input type="date" value={invForm.expiryDate} onChange={(e) => setInvForm({...invForm, expiryDate: e.target.value})}
-                    className="input-dark px-3 py-2.5 text-sm w-full" required />
-                </div>
-                <select value={invForm.location} onChange={(e) => setInvForm({...invForm, location: e.target.value})} className="input-dark px-3 py-2.5 text-sm col-span-2">
-                  <option value="warehouse">Warehouse</option>
-                  <option value="fridge">Fridge</option>
-                  <option value="pantry">Pantry</option>
-                </select>
+                <input
+                  type="number"
+                  value={invForm.quantity}
+                  onChange={(e) => setInvForm({ ...invForm, quantity: +e.target.value })}
+                  className="input-dark px-3 py-2 text-xs rounded-xl"
+                />
               </div>
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setShowInventoryForm(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 text-sm hover:bg-white/5 transition-all">
-                  {t('inventory.cancel')}
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Expiry Date</label>
+                <input
+                  type="date"
+                  value={invForm.expiryDate}
+                  onChange={(e) => setInvForm({ ...invForm, expiryDate: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowInventoryForm(false)}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-slate-400 text-xs"
+                >
+                  Cancel
                 </button>
-                <button type="submit" className="flex-1 btn-glow py-2.5 rounded-xl text-white text-sm font-semibold">
-                  {t('inventory.save')}
+                <button type="submit" className="flex-1 btn-glow py-2 rounded-xl text-white text-xs font-semibold">
+                  Save to Inventory
                 </button>
               </div>
             </form>
@@ -478,97 +685,134 @@ export function ManagerScanHistory() {
     }
   };
 
-  useEffect(() => { fetchScans(); }, [page, filters]);
+  useEffect(() => {
+    fetchScans();
+  }, [page, filters]);
 
   return (
     <div className="space-y-6 fade-up">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('nav.manager.scans')}</h1>
-          <p className="text-slate-500 text-sm mt-1">All scans from your business</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <span>📜</span> Business Scan Audit Logs
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Complete records of all staff audits, classification confidence, and sensor readouts.
+          </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="glass p-4 rounded-xl space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <input type="text" placeholder={t('result.foodType')} value={filters.foodType}
-            onChange={(e) => setFilters({...filters, foodType: e.target.value})}
-            className="input-dark px-3 py-2 text-sm rounded-lg flex-1 min-w-[150px]" />
-          <select value={filters.label} onChange={(e) => setFilters({...filters, label: e.target.value})}
-            className="input-dark px-3 py-2 text-sm rounded-lg">
-            <option value="">{t('label.all')}</option>
-            <option value="Fresh">{t('label.Fresh')}</option>
-            <option value="Borderline">{t('label.Borderline')}</option>
-            <option value="Spoiled">{t('label.Spoiled')}</option>
-          </select>
-          <input type="date" value={filters.startDate} onChange={(e) => setFilters({...filters, startDate: e.target.value})}
-            className="input-dark px-3 py-2 text-sm rounded-lg" />
-          <input type="date" value={filters.endDate} onChange={(e) => setFilters({...filters, endDate: e.target.value})}
-            className="input-dark px-3 py-2 text-sm rounded-lg" />
-          {(filters.foodType || filters.label || filters.startDate || filters.endDate) && (
-            <button onClick={() => setFilters({ foodType: '', label: '', startDate: '', endDate: '' })}
-              className="px-3 py-2 text-xs text-slate-400 hover:text-white border border-white/10 rounded-lg hover:border-white/20 transition-all">
-              ✕ Clear
-            </button>
-          )}
-        </div>
+      {/* Filters Toolbar */}
+      <div className="glass p-4 rounded-2xl flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          placeholder="Filter by food name..."
+          value={filters.foodType}
+          onChange={(e) => setFilters({ ...filters, foodType: e.target.value })}
+          className="input-dark px-3 py-2 text-xs rounded-xl flex-1 min-w-[150px]"
+        />
+        <select
+          value={filters.label}
+          onChange={(e) => setFilters({ ...filters, label: e.target.value })}
+          className="input-dark px-3 py-2 text-xs rounded-xl"
+        >
+          <option value="">All Freshness Ratings</option>
+          <option value="Fresh">Fresh</option>
+          <option value="Borderline">Borderline</option>
+          <option value="Spoiled">Spoiled</option>
+        </select>
+        <input
+          type="date"
+          value={filters.startDate}
+          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+          className="input-dark px-3 py-2 text-xs rounded-xl"
+        />
+        <input
+          type="date"
+          value={filters.endDate}
+          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+          className="input-dark px-3 py-2 text-xs rounded-xl"
+        />
+        {(filters.foodType || filters.label || filters.startDate || filters.endDate) && (
+          <button
+            onClick={() => setFilters({ foodType: '', label: '', startDate: '', endDate: '' })}
+            className="px-3 py-2 text-xs text-slate-400 hover:text-white border border-white/10 rounded-xl hover:bg-white/5"
+          >
+            ✕ Clear
+          </button>
+        )}
       </div>
 
       {/* Table */}
-      <div className="glass overflow-hidden">
+      <div className="glass rounded-2xl overflow-hidden border border-white/10">
         <div className="overflow-x-auto">
-          <table className="w-full dark-table">
+          <table className="w-full text-xs">
             <thead>
-              <tr>
-                <th className="text-left">Food</th>
-                <th className="text-left">Status</th>
-                <th className="text-left hidden sm:table-cell">Confidence</th>
-                <th className="text-left hidden md:table-cell">Gas (NH₃/H₂S/C₂H₄)</th>
-                <th className="text-left">Date</th>
+              <tr className="text-[10px] text-slate-400 uppercase tracking-wider border-b border-white/10 bg-white/5">
+                <th className="text-left py-3.5 px-4">Produce</th>
+                <th className="text-left py-3.5 px-4">Status</th>
+                <th className="text-left py-3.5 px-4 hidden sm:table-cell font-mono">Confidence</th>
+                <th className="text-left py-3.5 px-4 hidden md:table-cell font-mono">Gas Sensors (NH₃ / H₂S / Ethylene)</th>
+                <th className="text-left py-3.5 px-4">Date</th>
               </tr>
             </thead>
             <tbody>
               {scans.map((s) => (
-                <tr key={s._id} className="border-b border-white/5 text-slate-300 hover:bg-white/[0.01]">
-                  <td className="py-3 pr-4 font-medium text-white">{s.foodType}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      s.label === 'Fresh' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      s.label === 'Borderline' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                      'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}>
-                      {t(`label.${s.label}`)}
+                <tr key={s._id} className="border-b border-white/5 text-slate-300 hover:bg-white/5 transition-colors">
+                  <td className="py-3 px-4 font-bold text-white capitalize">{s.foodType}</td>
+                  <td className="py-3 px-4">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                        s.label === 'Fresh'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          : s.label === 'Borderline'
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                          : 'bg-red-500/15 text-red-400 border border-red-500/30'
+                      }`}
+                    >
+                      {s.label}
                     </span>
                   </td>
-                  <td className="py-3 pr-4 hidden sm:table-cell font-mono text-slate-400">{s.confidence}%</td>
-                  <td className="py-3 pr-4 hidden md:table-cell text-xs font-mono text-slate-500">
-                    NH₃:{s.gasReadings.nh3} H₂S:{s.gasReadings.h2s} C₂H₄:{s.gasReadings.ethylene}
+                  <td className="py-3 px-4 hidden sm:table-cell font-mono font-bold text-white">{s.confidence}%</td>
+                  <td className="py-3 px-4 hidden md:table-cell text-[11px] font-mono text-slate-400">
+                    NH₃:<span className="text-white font-bold">{s.gasReadings?.nh3}</span> ppm · H₂S:
+                    <span className="text-white font-bold">{s.gasReadings?.h2s}</span> ppm · Ethylene:
+                    <span className="text-white font-bold">{s.gasReadings?.ethylene}</span> ppm
                   </td>
-                  <td className="py-3 text-xs text-slate-500">{new Date(s.createdAt).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 text-slate-400 font-mono text-[10px]">
+                    {new Date(s.createdAt).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         {!scans.length && !loading && (
-          <div className="glass py-16 flex flex-col items-center gap-3 text-center">
+          <div className="py-16 text-center text-slate-500 space-y-2">
             <span className="text-5xl">🔍</span>
-            <p className="text-white font-medium">No scans found</p>
+            <p className="text-white font-bold">No scan records matching your filter</p>
           </div>
         )}
       </div>
 
       {/* Pagination */}
       {total > limit && (
-        <div className="flex items-center justify-center gap-2">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
-            ← Prev
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 rounded-xl text-xs font-semibold border border-white/10 hover:bg-white/5 disabled:opacity-40"
+          >
+            ← Previous
           </button>
-          <span className="text-sm text-slate-400">Page {page} of {Math.ceil(total / limit)}</span>
-          <button onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))} disabled={page >= Math.ceil(total / limit)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-white/10 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed">
+          <span className="text-xs text-slate-400 font-mono">
+            Page {page} of {Math.ceil(total / limit)}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(Math.ceil(total / limit), p + 1))}
+            disabled={page >= Math.ceil(total / limit)}
+            className="px-4 py-2 rounded-xl text-xs font-semibold border border-white/10 hover:bg-white/5 disabled:opacity-40"
+          >
             Next →
           </button>
         </div>
@@ -580,7 +824,6 @@ export function ManagerScanHistory() {
 // ============================================
 // MANAGER WASTE ANALYTICS
 // ============================================
-
 export function ManagerWasteAnalytics() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -592,57 +835,95 @@ export function ManagerWasteAnalytics() {
       try {
         const res = await api.get('/manager/waste-analytics', { params: { period } });
         setData(res.data);
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
     fetch();
   }, [period]);
 
   if (loading) {
-    return <div className="glass p-8 rounded-2xl animate-pulse"><div className="h-8 w-1/3 bg-white/10 rounded mb-4" /><div className="h-64 bg-white/5 rounded" /></div>;
+    return (
+      <div className="glass p-8 rounded-2xl animate-pulse space-y-4">
+        <div className="h-8 w-1/3 bg-white/10 rounded" />
+        <div className="h-64 bg-white/5 rounded" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6 fade-up">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t('nav.manager.waste')}</h1>
-          <p className="text-slate-500 text-sm mt-1">Weekly/monthly waste cost trends, top wasted items, PDF export</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <span>📉</span> Waste Financial Analytics
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Weekly and monthly financial loss trends with downloadable compliance PDF report.
+          </p>
         </div>
-        <div className="flex gap-2">
-          {['weekly', 'monthly'].map(p => (
-            <button key={p} onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                period === p ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}>
-              {p.charAt(0).toUpperCase() + p.slice(1)}
+        <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 p-1.5 rounded-2xl">
+          {['weekly', 'monthly'].map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize transition-all ${
+                period === p ? 'bg-brand-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {p}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard icon="💰" title="Total Waste Cost" value={formatCurrency(data?.totalCost || 0)} sub="All time" color="from-red-600/20 to-red-800/20 border-red-500/30 text-red-300" />
-        <StatCard icon="📦" title="Most Wasted" value={data?.mostWastedItem?.name || 'N/A'} sub={`${formatCurrency(data?.mostWastedItem?.cost || 0)} lost`} color="from-amber-600/20 to-amber-800/20 border-amber-500/30 text-amber-300" />
-        <StatCard icon="📊" title="Period" value={period.charAt(0).toUpperCase() + period.slice(1)} sub={`${data?.labels?.length || 0} data points`} color="from-blue-600/20 to-blue-800/20 border-blue-500/30 text-blue-300" />
+      {/* Executive Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          icon="💰"
+          title="Total Waste Cost"
+          value={formatCurrency(data?.totalCost || 0)}
+          sub="All logged spoilage losses"
+          color="from-red-600/20 via-red-700/15 to-red-900/20 border-red-500/30 text-red-300"
+        />
+        <StatCard
+          icon="📦"
+          title="Highest Loss Item"
+          value={data?.mostWastedItem?.name || 'N/A'}
+          sub={`${formatCurrency(data?.mostWastedItem?.cost || 0)} total financial loss`}
+          color="from-amber-600/20 via-amber-700/15 to-amber-900/20 border-amber-500/30 text-amber-300"
+        />
+        <StatCard
+          icon="📊"
+          title="Analytics Scope"
+          value={period.charAt(0).toUpperCase() + period.slice(1)}
+          sub={`${data?.labels?.length || 0} period intervals tracked`}
+          color="from-blue-600/20 via-blue-700/15 to-blue-900/20 border-blue-500/30 text-blue-300"
+        />
       </div>
 
-      {/* Chart */}
-      <div className="glass p-6 rounded-2xl">
-        <h3 className="text-lg font-bold text-white mb-4">{t('nav.manager.waste')} Trend</h3>
-        <div className="h-80">
+      {/* Interactive Recharts Chart */}
+      <div className="glass p-6 rounded-2xl space-y-4 border border-white/10">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <span>📈</span> Financial Loss Trend ({period.charAt(0).toUpperCase() + period.slice(1)})
+        </h3>
+        <div className="h-80 w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data?.labels?.map((l, i) => ({ label: l, value: data.values[i] })) || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
               <XAxis dataKey="label" stroke="#ffffff60" fontSize={11} tickMargin={10} />
-              <YAxis stroke="#ffffff60" fontSize={11} tickFormatter={v => formatCurrency(v)} />
-              <Tooltip formatter={v => [formatCurrency(v), 'Waste Cost']} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }} />
-              <Bar dataKey="value" fill="url(#wasteGradient)" radius={[4,4,0,0]} />
+              <YAxis stroke="#ffffff60" fontSize={11} tickFormatter={(v) => formatCurrency(v)} />
+              <Tooltip
+                formatter={(v) => [formatCurrency(v), 'Waste Cost']}
+                contentStyle={{ backgroundColor: '#161b27', border: '1px solid #253044', borderRadius: '12px' }}
+              />
+              <Bar dataKey="value" fill="url(#wasteGradient)" radius={[6, 6, 0, 0]} />
               <defs>
                 <linearGradient id="wasteGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0.15} />
                 </linearGradient>
               </defs>
             </BarChart>
@@ -650,11 +931,17 @@ export function ManagerWasteAnalytics() {
         </div>
       </div>
 
-      {/* Download PDF */}
-      <div className="glass p-6 rounded-2xl text-center border border-brand-500/30 bg-brand-500/10">
-        <p className="text-slate-400 mb-4">Generate a compliance-ready PDF waste report</p>
-        <a href="/api/manager/waste-report/pdf" className="btn-glow inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold">
-          📄 Download PDF Report
+      {/* PDF Export Banner */}
+      <div className="glass p-6 rounded-2xl text-center border border-brand-500/30 bg-brand-500/10 space-y-3">
+        <p className="text-white font-bold text-base">Download Enterprise Waste Audit Report</p>
+        <p className="text-xs text-slate-300 max-w-md mx-auto">
+          Generate an official compliance-ready PDF report detailing all financial loss records for executive presentation.
+        </p>
+        <a
+          href="/api/manager/waste-report/pdf"
+          className="btn-glow inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-xs"
+        >
+          📄 Export PDF Report
         </a>
       </div>
     </div>
@@ -667,71 +954,480 @@ export function ManagerWasteAnalytics() {
 export function ManagerChatbot() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [messages, setMessages] = useState([{ role: 'assistant', text: 'Hello! I\'m your business advisor. Ask me about inventory optimization, waste reduction, or supplier quality.' }]);
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      text: 'Hello! I am your AI Business Advisor. Ask me about reducing spoilage loss, optimizing warehouse rotation, or supplier quality controls.',
+    },
+  ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    const q = input.trim();
+  const handleSend = async (questionText) => {
+    const q = (questionText || input).trim();
     if (!q || loading) return;
-    setInput(''); setLoading(true);
-    setMessages(p => [...p, { role: 'user', text: q }]);
+    setInput('');
+    setLoading(true);
+    setMessages((p) => [...p, { role: 'user', text: q }]);
     try {
       const { data } = await api.post('/manager/chat', { question: q, language: user?.language || 'en' });
-      setMessages(p => [...p, { role: 'assistant', text: data.reply }]);
-    } catch { setMessages(p => [...p, { role: 'assistant', text: 'Error: Could not reach AI advisor.' }]); }
-    finally { setLoading(false); }
+      setMessages((p) => [...p, { role: 'assistant', text: data.reply }]);
+    } catch {
+      setMessages((p) => [...p, { role: 'assistant', text: 'Error: Could not establish connection with AI advisor.' }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const quickQuestions = [
+    'How to minimize fruit spoilage?',
+    'Optimal cold storage temperatures',
+    'High spoilage risk items in stock',
+  ];
+
   return (
-    <div className="rounded-xl border border-white/8 overflow-hidden h-[600px] flex flex-col">
-      <div className="flex items-center gap-2 px-4 py-3 bg-white/3 border-b border-white/8">
-        <div className="h-6 w-6 rounded-md bg-brand-600/30 flex items-center justify-center text-xs">🤖</div>
-        <span className="text-sm font-semibold text-white">Business AI Advisor</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-brand-500 animate-pulse-slow" />
-          <span className="text-xs text-slate-500">Gemini AI</span>
-        </div>
+    <div className="space-y-4 fade-up">
+      <div>
+        <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+          <span>🤖</span> AI Business Advisor
+        </h1>
+        <p className="text-slate-400 text-sm mt-1">
+          Gemini-powered executive AI consultant for inventory optimization and waste prevention.
+        </p>
       </div>
-      <div className="h-64 overflow-y-auto p-4 space-y-3 bg-surface-2/30 flex-1">
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-            {msg.role === 'assistant' && (
-              <div className="h-6 w-6 rounded-full bg-brand-700/40 border border-brand-600/30 flex items-center justify-center text-xs mr-2 mt-0.5 shrink-0">🤖</div>
-            )}
-            <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-              msg.role === 'user' ? 'bg-brand-600 text-white rounded-br-sm' : 'bg-white/8 text-slate-200 rounded-bl-sm border border-white/5'
-            }`}>{msg.text}</div>
-            {msg.role === 'user' && <div className="h-6 w-6 rounded-full bg-slate-700 flex items-center justify-center text-xs ml-2 mt-0.5 shrink-0">👤</div>}
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="h-6 w-6 rounded-full bg-brand-700/40 border border-brand-600/30 flex items-center justify-center text-xs mr-2 mt-0.5 shrink-0">🤖</div>
-            <div className="bg-white/8 border border-white/5 px-3.5 py-2.5 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+
+      <div className="glass rounded-2xl border border-white/10 overflow-hidden h-[620px] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 bg-white/5 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-lg">
+              🤖
+            </div>
+            <div>
+              <span className="text-xs font-bold text-white">Gemini Business Consultant</span>
+              <p className="text-[10px] text-slate-400">Trained on food preservation & logistics</p>
             </div>
           </div>
-        )}
-        <div ref={bottomRef} />
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] text-emerald-400 font-mono font-bold uppercase">Online</span>
+          </div>
+        </div>
+
+        {/* Chat Feed */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-950/40">
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+              {msg.role === 'assistant' && (
+                <div className="h-7 w-7 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-xs mr-2 shrink-0">
+                  🤖
+                </div>
+              )}
+              <div
+                className={`max-w-[80%] px-4 py-3 rounded-2xl text-xs leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-brand-600 text-white rounded-br-none shadow-md font-medium'
+                    : 'bg-white/10 text-slate-200 rounded-bl-none border border-white/10'
+                }`}
+              >
+                {msg.text}
+              </div>
+              {msg.role === 'user' && (
+                <div className="h-7 w-7 rounded-xl bg-slate-700 flex items-center justify-center text-xs ml-2 shrink-0">
+                  👤
+                </div>
+              )}
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex justify-start items-center gap-2">
+              <div className="h-7 w-7 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-xs">
+                🤖
+              </div>
+              <div className="bg-white/10 border border-white/10 px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="px-4 py-2 bg-white/5 border-t border-white/5 flex items-center gap-2 overflow-x-auto">
+          {quickQuestions.map((q) => (
+            <button
+              key={q}
+              onClick={() => handleSend(q)}
+              className="text-[10px] px-3 py-1.5 rounded-xl bg-white/5 hover:bg-brand-500/20 border border-white/10 text-slate-300 hover:text-brand-300 transition-all shrink-0 font-medium"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        {/* Input form */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-2 p-3 bg-white/5 border-t border-white/10"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask AI advisor about inventory strategies..."
+            className="input-dark flex-1 px-3.5 py-2.5 text-xs rounded-xl"
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={loading || !input.trim()}
+            className="btn-glow px-4 py-2.5 rounded-xl text-white text-xs font-semibold flex items-center gap-1.5"
+          >
+            {loading ? <span className="spinner w-4 h-4" /> : 'Send ↑'}
+          </button>
+        </form>
       </div>
-      <form onSubmit={handleSend} className="flex gap-2 p-3 bg-white/2 border-t border-white/8">
-        <input id="chat-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about waste reduction, inventory turnover..."
-          className="input-dark flex-1 px-3 py-2 text-sm rounded-lg" disabled={loading} />
-        <button id="chat-send-btn" type="submit" disabled={loading || !input.trim()}
-          className="btn-glow px-4 py-2 rounded-lg text-white text-sm font-semibold flex items-center gap-1.5">
-          {loading ? <span className="spinner w-4 h-4" /> : '↑'}
-        </button>
-      </form>
     </div>
   );
 }
+
+// ============================================
+// BULK SCAN - Manager multi-image stock audit
+// ============================================
+export function BatchScan() {
+  const { t } = useTranslation();
+  const [files, setFiles] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [batchName, setBatchName] = useState('');
+  const [foodType, setFoodType] = useState('');
+  const [estimatedValue, setEstimatedValue] = useState('');
+  const [currency, setCurrency] = useState('USD');
+
+  const resolveImageUrl = (url, index) => {
+    if (!url) return previews[index] || '';
+    if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    const apiBase = import.meta.env.VITE_API_BASE_URL 
+      ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '') 
+      : 'http://localhost:5000';
+    return `${apiBase}${url.startsWith('/') ? url : '/' + url}`;
+  };
+
+  const handleFiles = (selectedFiles) => {
+    const arr = Array.from(selectedFiles).slice(0, 50);
+    setFiles(arr);
+    setPreviews(arr.map(f => URL.createObjectURL(f)));
+    setError('');
+    setResult(null);
+  };
+
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => { URL.revokeObjectURL(prev[index]); return prev.filter((_, i) => i !== index); });
+  };
+
+  const handleSubmit = async () => {
+    if (files.length === 0) return;
+
+    const finalBatchName = batchName.trim() || `Shipment #${Math.floor(100 + Math.random() * 900)}`;
+    const finalFoodType = foodType.trim() || 'Produce Stock';
+
+    setUploading(true);
+    setProgress(0);
+    setError('');
+
+    const fd = new FormData();
+    files.forEach(f => fd.append('images', f));
+    fd.append('batchName', finalBatchName);
+    fd.append('foodType', finalFoodType);
+    if (estimatedValue) fd.append('estimatedValue', estimatedValue);
+    fd.append('currency', currency);
+
+    try {
+      const { data } = await api.post('/farmer/batch-scan', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => setProgress(Math.round((e.loaded * 100) / (e.total || 100))),
+      });
+      setResult(data);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Bulk scan failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 fade-up">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Bulk Stock Scan</h1>
+          <p className="text-slate-500 text-sm mt-1">Upload 1-50 incoming produce images at once for rapid freshness audit.</p>
+        </div>
+      </div>
+
+      <div className="glass p-4 md:p-6 space-y-5 card-hover animate-fade-up">
+        <div className="grid sm:grid-cols-3 gap-4">
+          <input
+            value={batchName}
+            onChange={(e) => setBatchName(e.target.value)}
+            placeholder="Stock Batch Name (e.g., Shipment #42)"
+            className="input-dark px-3 py-2.5 text-sm"
+          />
+          <input
+            value={foodType}
+            onChange={(e) => setFoodType(e.target.value)}
+            placeholder="Food type (e.g., Mango, Tomato)"
+            className="input-dark px-3 py-2.5 text-sm"
+          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.01"
+              value={estimatedValue}
+              onChange={(e) => setEstimatedValue(e.target.value)}
+              placeholder="Est. total value"
+              className="input-dark px-3 py-2.5 text-sm w-40"
+            />
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="input-dark px-3 py-2.5 text-sm w-28">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+        </div>
+
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+          className={`relative border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
+            previews.length > 0 ? 'py-6' : 'py-10 md:py-14'
+          } ${files.length > 0 ? 'border-emerald-400 bg-emerald-500/10' : 'border-white/10 hover:border-brand-600/50 hover:bg-white/[0.02]'}`}
+        >
+          {previews.length > 0 ? (
+            <div className="w-full">
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {previews.map((preview, i) => (
+                  <div key={i} className="relative shrink-0 w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden border border-white/10">
+                    <img src={preview} alt={`preview-${i}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                      className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center hover:bg-red-600 shadow-lg"
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 text-center">{files.length}/50 images selected</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4 text-center px-6">
+              <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl md:text-4xl animate-bounce-gentle">📦</div>
+              <div>
+                <p className="text-white font-semibold text-sm md:text-base">Drop 1-50 stock images here</p>
+                <p className="text-slate-500 text-xs mt-1">PNG, JPG, WEBP — max 5MB each</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer btn-glow text-white text-sm font-semibold">
+            📷 {t('scan.capture', 'Capture')}
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFiles(e.target.files)} className="hidden" multiple />
+          </label>
+          <label className="flex items-center justify-center gap-2 py-3.5 rounded-xl cursor-pointer border border-brand-600/40 text-brand-400 text-sm font-semibold hover:bg-brand-600/10 transition-all">
+            📁 {t('scan.upload', 'Upload')}
+            <input type="file" accept="image/*" onChange={(e) => handleFiles(e.target.files)} className="hidden" multiple />
+          </label>
+        </div>
+
+        {error && <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm animate-shake">⚠️ {error}</div>}
+
+        <button onClick={handleSubmit} disabled={files.length === 0 || uploading}
+          className="btn-glow w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer">
+          {uploading ? (
+            <>
+              <span className="spinner" /> Uploading & Analyzing... {progress}%
+              <div className="w-1/2 h-1.5 bg-white/10 rounded-full overflow-hidden ml-4">
+                <div className="bg-brand-500 h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
+              </div>
+            </>
+          ) : (
+            <>🔬 {t('scan.submit', 'Analyze Bulk Stock')}</>
+          )}
+        </button>
+      </div>
+
+      {result && (
+        <div className="animate-fade-up delay-200 space-y-6">
+          {/* Audit Summary Header Card */}
+          <div className="glass p-6 rounded-2xl border border-white/10 space-y-5 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
+                    <span>📊</span> Bulk Audit Results
+                  </h3>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 font-bold font-mono">
+                    Batch: {result.batch?.batchName || 'Shipment Audit'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Food Type: <span className="text-white font-semibold capitalize">{result.batch?.foodType || 'Produce Stock'}</span> · Scanned at {new Date(result.batch?.createdAt || Date.now()).toLocaleTimeString()}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-mono bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
+                  ID: {result.batch?._id || 'COMPLETED'}
+                </span>
+              </div>
+            </div>
+
+            {/* 4 Stat Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Scanned</p>
+                <p className="text-3xl font-black text-white">{result.batch?.totalItems || result.scans?.length || 0}</p>
+                <p className="text-[10px] text-slate-500 font-mono">Produce samples</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                <p className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                  <span>✅</span> Fresh Stock
+                </p>
+                <p className="text-3xl font-black text-emerald-300">{result.batch?.freshCount || 0}</p>
+                <p className="text-[10px] text-emerald-400/80 font-mono">
+                  {Math.round(((result.batch?.freshCount || 0) / (result.batch?.totalItems || 1)) * 100)}% of shipment
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1">
+                <p className="text-[10px] text-amber-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                  <span>⚠️</span> Borderline
+                </p>
+                <p className="text-3xl font-black text-amber-300">{result.batch?.borderlineCount || 0}</p>
+                <p className="text-[10px] text-amber-400/80 font-mono">
+                  {Math.round(((result.batch?.borderlineCount || 0) / (result.batch?.totalItems || 1)) * 100)}% sell soon
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 space-y-1">
+                <p className="text-[10px] text-red-400 uppercase font-bold tracking-wider flex items-center gap-1">
+                  <span>❌</span> Spoiled Stock
+                </p>
+                <p className="text-3xl font-black text-red-300">{result.batch?.spoiledCount || 0}</p>
+                <p className="text-[10px] text-red-400/80 font-mono">
+                  {Math.round(((result.batch?.spoiledCount || 0) / (result.batch?.totalItems || 1)) * 100)}% waste risk
+                </p>
+              </div>
+            </div>
+
+            {/* Quality Rating & Financial Value Banner */}
+            <div className="grid sm:grid-cols-2 gap-4 p-4 rounded-xl bg-gradient-to-r from-white/5 to-white/[0.02] border border-white/10">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-2xl bg-brand-500/20 border border-brand-500/40 flex flex-col items-center justify-center text-center shrink-0">
+                  <span className="text-2xl font-black text-brand-300 font-mono">{result.batch?.qualityScore}%</span>
+                  <span className="text-[8px] text-slate-400 font-bold uppercase">Grade</span>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Overall Shipment Quality</p>
+                  <p className="text-lg font-bold text-white mt-0.5">
+                    {result.batch?.qualityScore >= 80 ? '🌟 Grade-A Fresh Stock (High Market Value)' : result.batch?.qualityScore >= 50 ? '⚠️ Moderate Quality (Recommend Early Sale)' : '❌ High Degradation Risk'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-end gap-4 sm:border-l sm:border-white/10 sm:pl-4">
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Estimated Market Value</p>
+                  <p className="text-2xl sm:text-3xl font-extrabold text-amber-300 font-mono text-right">
+                    {formatCurrency(result.batch?.estimatedValue || 0)} <span className="text-xs font-normal text-slate-400">{result.batch?.currency || 'USD'}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Per-Item Inspection Grid */}
+          <div className="glass p-6 rounded-2xl border border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>🔍</span> Per-Item Inspection ({result.scans?.length || 0})
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Individual CNN classification and confidence rating for each produce sample.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {(result.scans || []).map((scan, idx) => {
+                const labelCls = scan.label === 'Fresh'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  : scan.label === 'Borderline'
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                  : 'bg-red-500/20 border-red-500/40 text-red-300';
+                
+                const labelIcon = scan.label === 'Fresh' ? '✅' : scan.label === 'Borderline' ? '⚠️' : '❌';
+
+                return (
+                  <div key={scan.scanId || idx} className="glass border border-white/10 rounded-2xl overflow-hidden card-hover flex flex-col justify-between">
+                    <div className="relative h-36 w-full bg-slate-950 overflow-hidden">
+                      <img
+                        src={resolveImageUrl(scan.imageUrl, idx)}
+                        alt={scan.foodType}
+                        onError={(e) => {
+                          if (previews[idx]) e.target.src = previews[idx];
+                        }}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                      <div className="absolute top-2 right-2 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15 shadow-md flex items-center gap-1">
+                        <span className="text-xs">{labelIcon}</span>
+                        <span className="text-[10px] font-mono font-bold text-white">{scan.confidence}%</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-white text-xs capitalize truncate">{scan.foodType}</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${labelCls}`}>
+                          {scan.label}
+                        </span>
+                      </div>
+                      
+                      {scan.gasReadings && (
+                        <div className="text-[9px] text-slate-400 font-mono bg-white/5 px-2 py-1 rounded-lg flex justify-between">
+                          <span>NH₃: {scan.gasReadings.nh3}</span>
+                          <span>H₂S: {scan.gasReadings.h2s}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 
 

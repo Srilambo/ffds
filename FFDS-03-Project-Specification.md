@@ -12,42 +12,28 @@
 
 ## 1. Project Overview
 
-FFDS is a machine-learning-powered Progressive Web App that lets anyone photograph a fruit, vegetable, or food item and receive a freshness verdict (Fresh/Borderline/Spoiled) with CNN confidence score, an AI chatbot explanation, and inventory tracking — extended with 5 additional features: Predictive Spoilage, Allergen/Nutrition Detection, WhatsApp/SMS Bot access, a Farmer-to-Buyer Marketplace, and a Carbon/Environmental Impact Tracker.
-
-**Tech stack (unchanged core + new integrations):**
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite, Tailwind CSS, i18next (6 languages), PWA |
-| Core API | Node.js + Express, Mongoose, JWT Auth (RBAC), Multer |
-| CNN Service | Python + FastAPI, TensorFlow/Keras, MobileNetV2 |
-| AI Chatbot | Google Gemini 2.0 Flash API |
-| Database | MongoDB Atlas |
-| **New:** Nutrition/Allergen | USDA FoodData Central API + Open Food Facts API |
-| **New:** Low-tech access | Twilio WhatsApp Business API |
-| **New:** Marketplace | Internal Listing/Interest models (no external API) |
-| **New:** Carbon tracking | Static emission-factor dataset (Our World in Data / Wolfram) |
+FFDS is a machine-learning-powered Progressive Web App that lets anyone photograph a fruit, vegetable, or food item and receive a freshness verdict (Fresh/Borderline/Spoiled) with CNN confidence score, an AI chatbot explanation, and inventory tracking — extended with 4 core value additions: Predictive Spoilage, Allergen/Nutrition Lookup, WhatsApp Bot Access, and Carbon/Environmental Impact Tracking.
 
 ---
 
 ## 2. Roles & Permissions Matrix
 
-| Capability | Consumer | Manager | Farmer | Admin |
-|---|:---:|:---:|:---:|:---:|
-| Scan food (single) | ✅ | ✅ | ✅ | – |
-| Batch scan (20–50 images) | – | – | ✅ | – |
-| View own pantry/inventory | ✅ | ✅ (business) | – | – |
-| Manage staff accounts | – | ✅ | – | ✅ (all users) |
-| Waste analytics | Personal | Team/branch | Loss tracker | Global |
-| Gemini chatbot | Consumer mode | Manager mode | Farmer mode | Admin mode |
-| Predictive spoilage view | ✅ | ✅ | ✅ (batch-level) | – |
-| Allergen/nutrition lookup | ✅ | ✅ | – | – |
-| WhatsApp bot access | ✅ | – | ✅ (primary use case) | – |
-| Create marketplace listing | – | – | ✅ | – |
-| Browse/buy marketplace | – | ✅ | – | – |
-| Carbon impact dashboard | ✅ (personal) | ✅ (branch) | – | ✅ (global) |
-| User management / suspend accounts | – | Staff only | – | ✅ (all) |
-| CNN model version management | – | – | – | ✅ |
+> [!NOTE]
+> FFDS features 3 clean user roles: **Consumer**, **Manager**, and **Admin**. Farmer-specific over-complications (Marketplace, Harvest Calendar, Buyer QR Certificates) have been removed, and batch image analysis is absorbed directly into the Manager Suite as **Bulk Scan**.
+
+| Capability | Consumer | Manager | Admin |
+|---|:---:|:---:|:---:|
+| Scan food (single) | ✅ | ✅ | – |
+| Bulk scan (20–50 stock images) | – | ✅ | – |
+| Pantry & Stock Control | ✅ (personal) | ✅ (business) | – |
+| Waste & Loss Analytics | Personal | Branch / Team | Global |
+| Gemini AI Advisor | Consumer mode | Manager mode | Admin mode |
+| Predictive Spoilage View | ✅ | ✅ | – |
+| Allergen / Nutrition Lookup | ✅ | ✅ | – |
+| WhatsApp Bot Access | ✅ | ✅ | – |
+| Carbon Impact Dashboard | ✅ (personal) | ✅ (branch) | ✅ (global) |
+| User & System Admin | – | Staff only | ✅ (all) |
+| CNN Model Management | – | – | ✅ |
 
 ---
 

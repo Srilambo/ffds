@@ -20,11 +20,14 @@ import { AdminUsers, AdminModels, AdminLanguages, AdminReports, AdminAnnouncemen
 
 // ── Manager pages ────────────────────────────────────────────
 import ManagerDashboardPage from './pages/manager/ManagerDashboardPage';
-import { ManagerInventory, ManagerScan, ManagerScanHistory, ManagerWasteAnalytics, ManagerChatbot } from './pages/manager/ManagerPages';
-
-// ── Farmer pages ─────────────────────────────────────────────
-import FarmerDashboard from './pages/farmer/FarmerDashboard';
-import { BatchScan, FarmerCalendar, LossTracking, BuyerReports, FarmerChatbot } from './pages/farmer/FarmerPages';
+import {
+  ManagerInventory,
+  ManagerScan,
+  ManagerScanHistory,
+  ManagerWasteAnalytics,
+  ManagerChatbot,
+  BatchScan,
+} from './pages/manager/ManagerPages';
 
 // ── Consumer pages ───────────────────────────────────────────
 import { ConsumerPantry, ConsumerHistory, ConsumerRecipes, ConsumerShoppingList, ConsumerSettings } from './pages/consumer/ConsumerPages';
@@ -32,9 +35,8 @@ import { ConsumerPantry, ConsumerHistory, ConsumerRecipes, ConsumerShoppingList,
 function RoleRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/" replace />;
-  if (user.role === 'admin')   return <Navigate to="/admin/dashboard"   replace />;
-  if (user.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
-  if (user.role === 'farmer')  return <Navigate to="/farmer/dashboard"  replace />;
+  if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  if (user.role === 'manager' || user.role === 'farmer') return <Navigate to="/manager/dashboard" replace />;
   return <Navigate to="/home" replace />;
 }
 
@@ -63,20 +65,18 @@ export default function AppRoutes() {
             <Route path="/admin/announcements" element={<AdminAnnouncements />} />
 
             {/* ── Manager routes ── */}
-            <Route path="/manager/dashboard" element={<ManagerDashboardPage />} />
-            <Route path="/manager/inventory" element={<ManagerInventory />} />
-            <Route path="/manager/scan" element={<ManagerScan />} />
-            <Route path="/manager/scans" element={<ManagerScanHistory />} />
-            <Route path="/manager/waste" element={<ManagerWasteAnalytics />} />
-            <Route path="/manager/chatbot" element={<ManagerChatbot />} />
+            <Route path="/manager/dashboard"     element={<ManagerDashboardPage />} />
+            <Route path="/manager/inventory"     element={<ManagerInventory />} />
+            <Route path="/manager/batch-scan"    element={<BatchScan />} />
+            <Route path="/manager/scan"          element={<Navigate to="/manager/batch-scan" replace />} />
+            <Route path="/manager/scans"         element={<ManagerScanHistory />} />
+            <Route path="/manager/waste"         element={<ManagerWasteAnalytics />} />
+            <Route path="/manager/chatbot"       element={<ManagerChatbot />} />
 
-            {/* ── Farmer routes ── */}
-            <Route path="/farmer/dashboard"     element={<FarmerDashboard />} />
-            <Route path="/farmer/batch-scan"    element={<BatchScan />} />
-            <Route path="/farmer/calendar"      element={<FarmerCalendar />} />
-            <Route path="/farmer/loss-tracking" element={<LossTracking />} />
-            <Route path="/farmer/buyer-reports" element={<BuyerReports />} />
-            <Route path="/farmer/chatbot"       element={<FarmerChatbot />} />
+            {/* ── Backward-compat redirects for legacy farmer routes ── */}
+            <Route path="/farmer/*" element={<Navigate to="/manager/dashboard" replace />} />
+
+
 
             {/* ── Consumer routes ── */}
             <Route path="/home"                   element={<Scan />} />
