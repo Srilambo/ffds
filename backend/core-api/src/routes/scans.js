@@ -6,5 +6,6 @@ const router = express.Router();
 
 router.get('/', auth, scanController.listScans);
 router.get('/:id', auth, scanController.getScan);
+router.patch('/:id', auth, scanController.updateScanFoodType);
 
 module.exports = router;

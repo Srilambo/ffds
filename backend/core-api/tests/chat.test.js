@@ -17,8 +17,11 @@ describe('Chat API', () => {
       label: 'Borderline',
       confidence: 75,
     });
+    geminiClient.resolveFoodType.mockResolvedValue('Banana');
     geminiClient.explainScan.mockResolvedValue('Banana is slightly overripe.');
     geminiClient.answerFollowUp.mockResolvedValue('Store in a cool dry place.');
+    geminiClient.isGenericFoodLabel.mockReturnValue(false);
+    geminiClient.normalizeFoodTypeName.mockImplementation((name) => name || 'Banana');
 
     const reg = await request(app)
       .post('/api/auth/register')

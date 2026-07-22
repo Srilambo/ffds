@@ -51,4 +51,67 @@ async function followUp(req, res, next) {
   }
 }
 
-module.exports = { followUp };
+async function combinedAdvisor(req, res, next) {
+  try {
+    const {
+      actionType,
+      foodType,
+      verdict,
+      confidence,
+      batchSize,
+      qualityScore,
+      freshPct,
+      borderlinePct,
+      spoiledPct,
+      inventorySummary,
+      userLanguage,
+      predictedDaysLeft,
+      tempC,
+      humidityPct,
+      matchedAllergen,
+    } = req.body;
+
+    if (!actionType || !foodType || !verdict) {
+      return res.status(400).json({ error: 'actionType, foodType, and verdict are required parameters.' });
+    }
+
+    const advice = await geminiClient.explainCombinedAdvisor({
+      actionType,
+      foodType,
+      verdict,
+      confidence,
+      batchSize,
+      qualityScore,
+      freshPct,
+      borderlinePct,
+      spoiledPct,
+      inventorySummary,
+      userLanguage: userLanguage || req.user?.language || 'English',
+      predictedDaysLeft,
+      tempC,
+      humidityPct,
+      matchedAllergen,
+    });
+
+    return res.status(200).json({ advice });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function generateRecipes(req, res, next) {
+  try {
+    const { ingredients, language } = req.body;
+    const recipes = await geminiClient.generateRecipesWithGemini({
+      ingredients: ingredients || [],
+      language: language || req.user?.language || 'English',
+    });
+    return res.status(200).json({ recipes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { followUp, combinedAdvisor, generateRecipes };
+
+

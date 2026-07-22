@@ -17,7 +17,10 @@ describe('Manager Dashboard API', () => {
       label: 'Spoiled',
       confidence: 88,
     });
+    geminiClient.resolveFoodType.mockResolvedValue('Tomato');
     geminiClient.explainScan.mockResolvedValue('Tomato is spoiled.');
+    geminiClient.isGenericFoodLabel.mockReturnValue(false);
+    geminiClient.normalizeFoodTypeName.mockImplementation((name) => name || 'Tomato');
 
     const manager = await request(app)
       .post('/api/auth/register')
