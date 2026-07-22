@@ -1,11 +1,19 @@
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import ChatBot from './ChatBot';
+import api from '../api/axiosClient';
 
 const labelConfig = {
   Fresh:      { cls: 'badge-fresh',      icon: '✅', bar: 'from-brand-600 to-brand-400' },
   Borderline: { cls: 'badge-borderline', icon: '⚠️', bar: 'from-amber-600 to-amber-400' },
   Spoiled:    { cls: 'badge-spoiled',    icon: '❌', bar: 'from-red-700 to-red-500' },
 };
+
+const QUICK_FOOD_ITEMS = [
+  'Apple', 'Banana', 'Orange', 'Mango', 'Strawberry', 'Watermelon',
+  'Tomato', 'Carrot', 'Potato', 'Cucumber', 'Bellpepper', 'Broccoli',
+  'Grape', 'Pineapple', 'Onion'
+];
 
 function GasStat({ label, value, unit = 'ppm', max, color }) {
   const pct = Math.min((value / max) * 100, 100);
@@ -22,8 +30,34 @@ function GasStat({ label, value, unit = 'ppm', max, color }) {
   );
 }
 
-export default function ScanResult({ scan, onAddToInventory }) {
+export default function ScanResult({ scan: initialScan, onAddToInventory }) {
   const { t } = useTranslation();
+  const [scan, setScan] = useState(initialScan);
+  const [isEditing, setIsEditing] = useState(false);
+  const [customName, setCustomName] = useState(initialScan.foodType || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setScan(initialScan);
+    setCustomName(initialScan.foodType || '');
+    setIsEditing(false);
+  }, [initialScan]);
+
+  const handleUpdateName = async (nameToSave) => {
+    const targetName = nameToSave || customName;
+    if (!targetName || !targetName.trim() || !scan._id) return;
+    setSaving(true);
+    try {
+      const { data } = await api.patch(`/scans/${scan._id}`, { foodType: targetName.trim() });
+      setScan(data);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Failed to update food name:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const cfg = labelConfig[scan.label] || labelConfig.Fresh;
 
   // Format expiration date
@@ -54,14 +88,74 @@ export default function ScanResult({ scan, onAddToInventory }) {
     <div className="glass p-4 md:p-6 space-y-5 md:space-y-6 card-hover h-full">
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('result.foodType')}</p>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold">
-              {t('result.aiDetected', 'AI Detected')}
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold flex items-center gap-1">
+              ✨ {t('result.aiDetected', 'AI Detected')}
             </span>
           </div>
-          <p className="text-2xl md:text-3xl font-bold text-white capitalize">{scan.foodType}</p>
+
+          {!isEditing ? (
+            <div className="flex items-center gap-2 group">
+              <p className="text-2xl md:text-3xl font-bold text-white capitalize">{scan.foodType}</p>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="opacity-60 hover:opacity-100 p-1 rounded-md text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                title="Correct or change item name"
+              >
+                ✏️
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2 mt-1 animate-fade-up">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  className="input-dark px-3 py-1.5 text-sm rounded-lg text-white w-full max-w-xs border border-brand-500/40"
+                  placeholder="Enter fruit or vegetable name"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => handleUpdateName(customName)}
+                  className="px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition-all"
+                >
+                  {saving ? '...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsEditing(false); setCustomName(scan.foodType); }}
+                  className="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-400 text-xs transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {QUICK_FOOD_ITEMS.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => {
+                      setCustomName(item);
+                      handleUpdateName(item);
+                    }}
+                    className={`text-[11px] px-2 py-0.5 rounded-md border transition-all ${
+                      item.toLowerCase() === scan.foodType.toLowerCase()
+                        ? 'bg-brand-500/30 border-brand-400 text-brand-300 font-medium'
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {expiryDate && (
             <p className="text-xs text-slate-400 mt-1">
               Expires: <span className="text-white font-medium">{expiryDate}</span>
@@ -110,13 +204,13 @@ export default function ScanResult({ scan, onAddToInventory }) {
       {/* AI Chatbot */}
       <ChatBot scanId={scan._id} initialExplanation={scan.chatbotExplanation} />
 
-      {/* Add to inventory */}
+      {/* Add to Fridge */}
       <button
         id="add-to-inventory-btn"
         onClick={() => onAddToInventory(scan)}
         className="btn-glow w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
       >
-        🍎 {t('result.addToInventory')}
+        🧊 Add to Fridge
       </button>
     </div>
   );

@@ -53,7 +53,7 @@ export default function Scan() {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 7);
     setInvForm({ foodName: scanData.foodType, category: 'fruit', quantity: 1,
-      unit: 'pcs', purchaseDate: new Date().toISOString().split('T')[0],
+      unit: 'pcs', location: 'fridge', purchaseDate: new Date().toISOString().split('T')[0],
       expiryDate: expiry.toISOString().split('T')[0] });
     setShowInventoryForm(true);
   };
@@ -61,7 +61,7 @@ export default function Scan() {
   const submitInventory = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/inventory', { ...invForm, linkedScanId: scan?._id,
+      await api.post('/inventory', { ...invForm, location: 'fridge', linkedScanId: scan?._id,
         purchaseDate: new Date(invForm.purchaseDate).toISOString(),
         expiryDate: new Date(invForm.expiryDate).toISOString() });
       setShowInventoryForm(false);
@@ -74,12 +74,16 @@ export default function Scan() {
       <div className="page-header animate-fade-up">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div>
-            <h1>{t('scan.title')}</h1>
-            <p>Upload or capture a food photo for AI freshness analysis</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>🔍</span> {t('scan.title')}
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Upload or capture a food photo for instant AI freshness analysis, gas telemetry & shelf-life prediction.
+            </p>
           </div>
-          <div className="flex gap-2 stagger-children">
-            {['🔬 CNN', '🌡️ Gas', '🤖 AI'].map((tag) => (
-              <span key={tag} className="text-[10px] px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold">
+          <div className="flex gap-2 stagger-children shrink-0">
+            {['🔬 CNN', '🌡️ Gas Sensor', '🤖 AI Advisor'].map((tag) => (
+              <span key={tag} className="text-[11px] px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 font-semibold shadow-sm">
                 {tag}
               </span>
             ))}
@@ -168,17 +172,44 @@ export default function Scan() {
           {scan ? (
             <ScanResult scan={scan} onAddToInventory={handleAddToInventory} />
           ) : (
-            <div className="glass p-6 md:p-8 h-full min-h-[280px] flex flex-col items-center justify-center text-center space-y-4 border border-dashed border-white/10 rounded-2xl">
-              <div className="text-5xl md:text-6xl animate-float-slow">🥬</div>
-              <div>
-                <p className="text-white font-semibold">Ready to analyze</p>
-                <p className="text-slate-500 text-sm mt-1 max-w-xs">
-                  Upload a food image — the AI model will detect the fruit or vegetable name automatically.
-                </p>
+            <div className="glass p-6 md:p-8 h-full min-h-[340px] flex flex-col justify-between space-y-6 border border-white/10 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/10 blur-3xl rounded-full pointer-events-none" />
+              
+              <div className="text-center space-y-3 pt-4">
+                <div className="inline-flex h-20 w-20 rounded-3xl bg-gradient-to-tr from-brand-500/20 to-emerald-500/10 border border-brand-500/30 items-center justify-center text-4xl shadow-glow animate-float-slow mx-auto">
+                  🥬
+                </div>
+                <div>
+                  <h3 className="text-white font-extrabold text-lg">Ready for AI Analysis</h3>
+                  <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">
+                    Upload or snap a photo of any fruit or vegetable to classify freshness and estimate remaining shelf life.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-wrap justify-center gap-2">
+
+              {/* 3 Step Process Guide */}
+              <div className="grid grid-cols-3 gap-2 py-3 border-y border-white/5 text-center">
+                <div className="space-y-1">
+                  <span className="text-base">📸</span>
+                  <p className="text-[10px] font-bold text-white">1. Capture</p>
+                  <p className="text-[9px] text-slate-500">Upload photo</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-base">🤖</span>
+                  <p className="text-[10px] font-bold text-white">2. Analyze</p>
+                  <p className="text-[9px] text-slate-500">CNN + Gas AI</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-base">🧊</span>
+                  <p className="text-[10px] font-bold text-white">3. Save</p>
+                  <p className="text-[9px] text-slate-500">Track in fridge</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-center items-center gap-2 pb-2">
+                <span className="text-[10px] text-slate-500 uppercase font-semibold">Classification:</span>
                 {['Fresh', 'Borderline', 'Spoiled'].map((label) => (
-                  <span key={label} className={`text-[10px] px-2.5 py-1 rounded-full font-semibold badge-${label.toLowerCase()}`}>
+                  <span key={label} className={`text-[10px] px-2.5 py-1 rounded-full font-bold badge-${label.toLowerCase()}`}>
                     {label}
                   </span>
                 ))}
@@ -188,12 +219,38 @@ export default function Scan() {
         </div>
       </div>
 
-      {/* Mobile: result below upload when scan exists */}
-      {scan && (
-        <div className="lg:hidden">
-          {/* Already shown in grid above — no duplicate needed */}
+      {/* Feature Highlights / AI Workflow section */}
+      <div className="grid sm:grid-cols-3 gap-4 pt-2 animate-fade-up delay-300">
+        <div className="glass p-4 rounded-2xl border border-white/10 space-y-2 card-hover">
+          <div className="h-9 w-9 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center text-lg font-bold">
+            📷
+          </div>
+          <h4 className="text-sm font-bold text-white">Computer Vision AI</h4>
+          <p className="text-xs text-slate-400">
+            CNN multi-class deep learning model trained to detect food visual degradation & surface decay.
+          </p>
         </div>
-      )}
+
+        <div className="glass p-4 rounded-2xl border border-white/10 space-y-2 card-hover">
+          <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg font-bold">
+            🧪
+          </div>
+          <h4 className="text-sm font-bold text-white">Gas Telemetry Sensor</h4>
+          <p className="text-xs text-slate-400">
+            Monitors Ammonia (NH₃), Hydrogen Sulfide (H₂S), and Ethylene levels to prevent spoilage early.
+          </p>
+        </div>
+
+        <div className="glass p-4 rounded-2xl border border-white/10 space-y-2 card-hover">
+          <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-lg font-bold">
+            ❄️
+          </div>
+          <h4 className="text-sm font-bold text-white">Smart Fridge Management</h4>
+          <p className="text-xs text-slate-400">
+            Seamlessly save scanned produce to your fridge to get automated expiration alerts and recipe ideas.
+          </p>
+        </div>
+      </div>
 
       {/* Add to inventory modal */}
       {showInventoryForm && (

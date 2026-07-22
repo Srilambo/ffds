@@ -6,10 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 
 const ROLES = [
-  { value: 'consumer', label: 'Regular User',  icon: '🏠', desc: 'Scan food & manage pantry' },
-  { value: 'manager',  label: 'Manager',        icon: '🏪', desc: 'Oversee inventory & staff' },
-  { value: 'farmer',   label: 'Farmer',         icon: '🚜', desc: 'Manage harvest batches' },
-  { value: 'admin',    label: 'Admin',          icon: '⚙️', desc: 'System access & control' },
+  { value: 'consumer', label: 'Regular User',       icon: '🏠', desc: 'Scan food & manage pantry' },
+  { value: 'manager',  label: 'Business / Producer', icon: '🏪', desc: 'Manage inventory, harvest batches & waste' },
+  { value: 'admin',    label: 'Admin',               icon: '⚙️', desc: 'System access & control' },
 ];
 
 export default function Register() {
