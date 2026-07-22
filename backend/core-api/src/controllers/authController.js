@@ -56,8 +56,8 @@ async function register(req, res, next) {
     if (!name || !email || !password || !role || !language) {
       return res.status(400).json({ error: 'All fields are required' });
     }
-    if (!['consumer', 'manager', 'farmer', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be consumer, manager, farmer, or admin' });
+    if (!['consumer', 'manager', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be consumer, manager, or admin' });
     }
     if (!['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
       return res.status(400).json({ error: 'Language must be en, si, ta, ar, fr, or ja' });
@@ -70,9 +70,9 @@ async function register(req, res, next) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     
-    // Generate IDs based on role
+    // Generate IDs based on role (Manager role includes farm & business capabilities)
     const businessId = role === 'manager' ? new mongoose.Types.ObjectId() : null;
-    const farmId = role === 'farmer' ? new mongoose.Types.ObjectId() : null;
+    const farmId = role === 'manager' ? businessId : null;
     const familyId = role === 'consumer' ? new mongoose.Types.ObjectId() : null;
     
     // For legacy compat with manager team actions
@@ -118,6 +118,14 @@ async function login(req, res, next) {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Auto-migrate legacy farmer accounts to manager (combined Producer & Business Manager)
+    if (user.role === 'farmer') {
+      user.role = 'manager';
+      if (!user.businessId) user.businessId = user.farmId || new mongoose.Types.ObjectId();
+      if (!user.farmId) user.farmId = user.businessId;
+      if (!user.teamId) user.teamId = user.businessId;
     }
 
     user.lastLogin = new Date();

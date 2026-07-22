@@ -8,12 +8,23 @@ const geminiClient = require('../services/geminiClient');
 
 const IMAGES_DIR = path.join(__dirname, '../../assets/images');
 
+function imageExtension(mimetype) {
+  const map = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+  };
+  return map[mimetype] || '.jpg';
+}
+
 function saveImage(buffer, mimetype) {
   try {
     if (!fs.existsSync(IMAGES_DIR)) {
       fs.mkdirSync(IMAGES_DIR, { recursive: true });
     }
-    const ext = mimetype === 'image/png' ? '.png' : '.jpg';
+    const ext = imageExtension(mimetype);
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const filepath = path.join(IMAGES_DIR, filename);
     fs.writeFileSync(filepath, buffer);
@@ -37,7 +48,7 @@ async function createScan(req, res, next) {
     const imageUrl = saveImage(buffer, mimetype);
 
     // Always resolve food name from image (CNN + Gemini vision fallback)
-    const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult.foodType);
+    const resolvedFoodType = (await geminiClient.resolveFoodType(buffer, mimetype, cnnResult)) || cnnResult.foodType || 'Food Item';
 
     // Calculate expiration date based on freshness label
     const now = new Date();
@@ -78,7 +89,7 @@ async function createScan(req, res, next) {
     const scanData = {
       userId: req.user._id,
       imageUrl,
-      foodType: geminiClient.normalizeFoodTypeName(finalFoodType),
+      foodType: geminiClient.normalizeFoodTypeName(finalFoodType) || finalFoodType || 'Food Item',
       label: cnnResult.label,
       confidence: cnnResult.confidence,
       gasReadings,
@@ -107,7 +118,7 @@ async function createScan(req, res, next) {
       await InventoryItem.create({
         ownerId,
         ownerType,
-        foodName: geminiClient.normalizeFoodTypeName(finalFoodType),
+        foodName: geminiClient.normalizeFoodTypeName(finalFoodType) || finalFoodType || 'Food Item',
         category: 'fruit', // Default, can be updated later
         quantity: 1,
         unit: 'pcs',
@@ -140,7 +151,7 @@ async function getScan(req, res, next) {
     if (!scan) {
       return res.status(404).json({ error: 'Scan not found' });
     }
-    if (scan.userId.toString() !== req.user._id) {
+    if (scan.userId && scan.userId.toString() !== req.user._id.toString()) {
       return res.status(404).json({ error: 'Scan not found' });
     }
     return res.status(200).json(scan);
@@ -149,4 +160,45 @@ async function getScan(req, res, next) {
   }
 }
 
-module.exports = { createScan, listScans, getScan };
+async function updateScanFoodType(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { foodType } = req.body;
+
+    if (!foodType || !foodType.trim()) {
+      return res.status(400).json({ error: 'Food type is required' });
+    }
+
+    const scan = await Scan.findById(id);
+    if (!scan) {
+      return res.status(404).json({ error: 'Scan not found' });
+    }
+    if (scan.userId.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ error: 'Scan not found' });
+    }
+
+    const normalized = geminiClient.normalizeFoodTypeName(foodType.trim());
+    scan.foodType = normalized;
+
+    try {
+      const geminiResult = await geminiClient.explainScan({
+        foodType: normalized,
+        label: scan.label,
+        confidence: scan.confidence,
+        gasReadings: scan.gasReadings,
+        language: req.user.language || 'en',
+        role: req.user.role || 'consumer',
+      });
+      scan.chatbotExplanation = typeof geminiResult === 'string' ? geminiResult : geminiResult.text;
+    } catch (err) {
+      console.warn('[updateScanFoodType] Failed to regenerate explanation:', err.message);
+    }
+
+    await scan.save();
+    return res.status(200).json(scan);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { createScan, listScans, getScan, updateScanFoodType };

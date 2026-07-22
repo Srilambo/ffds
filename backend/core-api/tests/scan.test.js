@@ -18,7 +18,10 @@ describe('Scan API', () => {
       label: 'Fresh',
       confidence: 92.5,
     });
+    geminiClient.resolveFoodType.mockResolvedValue('Apple');
     geminiClient.explainScan.mockResolvedValue('This apple looks fresh and safe to eat.');
+    geminiClient.isGenericFoodLabel.mockReturnValue(false);
+    geminiClient.normalizeFoodTypeName.mockImplementation((name) => name || 'Apple');
 
     const reg = await request(app)
       .post('/api/auth/register')

@@ -4,6 +4,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 
 from app import model as model_module
+from app.food_classifier import is_food_model_loaded, _load_ffds_model
 
 app = FastAPI(title="FFDS CNN Service", version="1.0.0")
 
@@ -11,11 +12,16 @@ app = FastAPI(title="FFDS CNN Service", version="1.0.0")
 @app.on_event("startup")
 async def startup_event():
     model_module.load_model()
+    _load_ffds_model()
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model_loaded": model_module.is_model_loaded()}
+    return {
+        "status": "ok",
+        "model_loaded": model_module.is_model_loaded(),
+        "food_classifier_loaded": is_food_model_loaded(),
+    }
 
 
 @app.post("/predict")

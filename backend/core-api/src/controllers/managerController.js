@@ -50,11 +50,27 @@ async function getDashboard(req, res, next) {
       userId: s.userId,
     }));
 
+    const scansByLabel = { Fresh: 0, Borderline: 0, Spoiled: 0 };
+    scans.forEach((s) => {
+      if (scansByLabel[s.label] !== undefined) {
+        scansByLabel[s.label]++;
+      }
+    });
+
+    const expiringItems = inventoryItems.filter(
+      (i) => i.status === 'active' && i.expiryDate && new Date(i.expiryDate) <= twoDaysFromNow
+    );
+
     return res.status(200).json({
       totalItems,
+      totalInventoryItems: totalItems,
       expiringSoon,
+      expiringItems,
       wasteCostThisMonth,
+      wastedItems: wasteLogs.length,
+      wasteRate: totalItems > 0 ? parseFloat(((wasteLogs.length / (totalItems + wasteLogs.length)) * 100).toFixed(1)) : 0,
       recentScans,
+      scansByLabel,
       totalScans: scans.length,
     });
   } catch (err) {

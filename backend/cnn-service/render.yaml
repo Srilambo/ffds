@@ -8,5 +8,7 @@ services:
     envVars:
       - key: MODEL_PATH
         value: ./model/ffds_mobilenetv2.h5
+      - key: FOOD_MODEL_PATH
+        value: ./model/food_classifier.h5
       - key: PORT
         value: 8000
