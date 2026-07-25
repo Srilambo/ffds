@@ -142,6 +142,11 @@ async function remove(req, res, next) {
 
 async function expiring(req, res, next) {
   try {
+    // Admins manage the platform, not personal/business inventory
+    if (req.user.role === 'admin') {
+      return res.status(200).json([]);
+    }
+
     const filter = getListFilter(req.user);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() + 2);
