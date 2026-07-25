@@ -483,8 +483,19 @@ Question: ${question}
 
 Provide concise, practical advice focused on post-harvest handling, storage temperatures, transport logistics, and sell/hold decisions.`;
 
-    const result = await geminiModel.generateContent(prompt);
-    const reply = result.response.text();
+    let reply;
+    try {
+      const result = await geminiModel.generateContent(prompt);
+      reply = result.response.text();
+    } catch (apiErr) {
+      console.warn('Gemini API call failed in farmer chat:', apiErr?.message || apiErr);
+      reply = `[AI Farm Advisor Offline] Responding in offline advisory mode.
+
+Key recommendations for your harvest:
+1. **Temperature Control**: Store harvested produce in shaded, ventilated storage at optimal humidity.
+2. **Sorting & Grading**: Separate prime fresh stock from borderline items to prevent rot spreading.
+3. **Transport Prep**: Ensure transport containers are sanitized and properly stacked.`;
+    }
 
     return res.status(200).json({ reply });
   } catch (err) {

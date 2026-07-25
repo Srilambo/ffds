@@ -4,7 +4,14 @@ const { syncExpiryNotificationsForUser } = require('../services/expiryNotificati
 
 async function list(req, res, next) {
   try {
-    await syncExpiryNotificationsForUser(req.user._id);
+    // Admins don't have personal inventory — skip expiry sync
+    if (req.user.role !== 'admin') {
+      try {
+        await syncExpiryNotificationsForUser(req.user._id);
+      } catch (syncErr) {
+        console.warn('Expiry sync failed (non-fatal):', syncErr.message);
+      }
+    }
 
     const notifications = await Notification.find({ userId: req.user._id })
       .sort({ isRead: 1, createdAt: -1 })
@@ -18,7 +25,13 @@ async function list(req, res, next) {
 
 async function unreadCount(req, res, next) {
   try {
-    await syncExpiryNotificationsForUser(req.user._id);
+    if (req.user.role !== 'admin') {
+      try {
+        await syncExpiryNotificationsForUser(req.user._id);
+      } catch (syncErr) {
+        console.warn('Expiry sync failed (non-fatal):', syncErr.message);
+      }
+    }
 
     const count = await Notification.countDocuments({
       userId: req.user._id,
@@ -97,6 +110,9 @@ async function updatePreferences(req, res, next) {
 
 async function sync(req, res, next) {
   try {
+    if (req.user.role === 'admin') {
+      return res.status(200).json({ message: 'No inventory sync needed for admin', synced: 0 });
+    }
     const result = await syncExpiryNotificationsForUser(req.user._id);
     return res.status(200).json({ message: 'Notifications synced', ...result });
   } catch (err) {
