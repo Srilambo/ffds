@@ -11,8 +11,10 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ffds';
 
 // Demo credentials
 const DEMO_ACCOUNTS = [
+  { name: 'Demo Admin',   email: 'admin@ffds.com',       password: 'admin123',    role: 'admin',   language: 'en' },
   { name: 'Demo Manager', email: 'manager@example.com', password: 'password123', role: 'manager', language: 'en' },
   { name: 'Demo Manager Alt', email: 'manager@demo.com', password: 'demo123', role: 'manager', language: 'en' },
+  { name: 'Demo Farmer',  email: 'farmer@example.com',  password: 'password123', role: 'farmer',  language: 'en' },
   { name: 'Demo Consumer', email: 'consumer@example.com', password: 'password123', role: 'consumer', language: 'en' },
   { name: 'Demo Consumer Alt', email: 'consumer@demo.com', password: 'demo123', role: 'consumer', language: 'en' },
 ];
@@ -32,7 +34,7 @@ async function seedDemoData() {
     const createdUsers = [];
     for (const acc of DEMO_ACCOUNTS) {
       const passwordHash = await bcrypt.hash(acc.password, 10);
-      const businessId = acc.role === 'manager' ? new mongoose.Types.ObjectId() : null;
+      const businessId = (acc.role === 'manager' || acc.role === 'admin' || acc.role === 'farmer') ? new mongoose.Types.ObjectId() : null;
       const familyId = acc.role === 'consumer' ? new mongoose.Types.ObjectId() : null;
       
       const user = await User.create({
@@ -49,7 +51,7 @@ async function seedDemoData() {
         notificationPrefs: { expiryReminders: true, pushEnabled: true, reminderDays: 2 }
       });
       createdUsers.push(user);
-      console.log(`Created account: ${user.email} (${user.role})`);
+      console.log(`Created account: ${user.email} (${user.role}) — password: ${acc.password}`);
     }
 
     const primaryManager = createdUsers.find(u => u.role === 'manager');
@@ -165,7 +167,8 @@ async function seedDemoData() {
     }
 
     console.log('\n=== DEMO DATA SUCCESSFULLY SEEDED ===\n');
-    console.log('1. Manager Account: consumer@example.com / password123 OR manager@demo.com / demo123');
+    console.log('0. Admin Account:   admin@ffds.com / admin123');
+    console.log('1. Manager Account: manager@example.com / password123 OR manager@demo.com / demo123');
     console.log('2. Consumer Account: consumer@example.com / password123 OR consumer@demo.com / demo123');
     console.log('\n=====================================\n');
 

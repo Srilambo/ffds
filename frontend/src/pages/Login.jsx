@@ -51,6 +51,7 @@ export default function Login() {
       subtitle="Welcome back — sign in to continue"
       variant="login"
     >
+      {/* ── Login Form ── */}
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="animate-fade-up delay-100">
           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">

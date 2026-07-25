@@ -420,8 +420,21 @@ Question: ${question}
 
 Provide a concise, actionable response focused on business operations, cost savings, and waste reduction.`;
 
-    const result = await geminiModel.generateContent(prompt);
-    const reply = result.response.text();
+    let reply;
+    try {
+      const result = await geminiModel.generateContent(prompt);
+      reply = result.response.text();
+    } catch (apiErr) {
+      console.warn('Gemini API call failed in manager chat:', apiErr?.message || apiErr);
+      reply = `[AI Advisor Offline] I am currently responding in offline advisory mode.
+
+Recommended strategies for your store:
+1. **FIFO Stock Management**: Prioritize selling older inventory first to minimize spoilage loss.
+2. **Cold Storage Optimization**: Maintain cold room temperatures at 2-4°C for fresh produce.
+3. **Batch Audits**: Perform scans on incoming produce shipments to catch early degradation.
+
+Ask specific questions regarding fruit rotation, inventory layout, or storage conditions!`;
+    }
 
     return res.status(200).json({ reply });
   } catch (err) {
