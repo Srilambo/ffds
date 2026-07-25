@@ -118,27 +118,27 @@ function Layout() {
             </Link>
 
             {user && (
-              <span className={`hidden sm:inline-flex text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border ${theme.badge}`}>
+              <span className={`hidden xl:inline-flex text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${theme.badge}`}>
                 {theme.label}
               </span>
             )}
           </div>
 
           {/* Desktop Navigation links */}
-          <nav className="hidden lg:flex items-center gap-1.5 flex-1 justify-center max-w-3xl">
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 flex-1 justify-center max-w-3xl overflow-x-auto no-scrollbar">
             {navLinks.map(({ to, label, icon }) => {
               const active = isActive(to);
               return (
                 <Link
                   key={to}
                   to={to}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 shrink-0 ${
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3.5 py-1.5 xl:py-2 rounded-xl text-[11px] xl:text-xs font-semibold transition-all duration-200 whitespace-nowrap shrink-0 ${
                     active
                       ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30 shadow-glow shadow-brand-500/10'
                       : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
                   }`}
                 >
-                  <span className="text-sm leading-none">{icon}</span>
+                  <span className="text-xs xl:text-sm leading-none">{icon}</span>
                   <span>{label}</span>
                 </Link>
               );
@@ -148,12 +148,12 @@ function Layout() {
           {/* User Info & Actions */}
           <div className="flex items-center gap-3 shrink-0">
             {user && (
-              <div className="hidden md:flex items-center gap-2.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl">
-                <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-xs shadow-sm">
+              <div className="hidden md:flex items-center gap-2 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center font-bold text-slate-950 text-xs shadow-sm shrink-0">
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-xs font-semibold text-white max-w-[120px] truncate leading-tight">
+                  <span className="text-xs font-semibold text-white max-w-[70px] xl:max-w-[120px] truncate leading-tight">
                     {user.name}
                   </span>
                   <span className="text-[10px] text-slate-400 capitalize">
