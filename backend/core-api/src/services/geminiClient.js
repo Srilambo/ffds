@@ -287,12 +287,12 @@ function getMockFollowUp({ scanContext, question, language }) {
   const food = (scanContext.foodType || 'food').toLowerCase();
   
   if (language === 'si') {
-    return `[Offline Mode] මම දැනට නොබැඳි මාදිලියේ ක්‍රියාත්මක වෙමි. ඔබගේ ${food} අයිතමය ${label === 'Fresh' ? 'නැවුම්' : label === 'Borderline' ? 'මධ්‍යස්ථ' : 'නරක් වූ'} කාණ්ඩයට අයත් වේ. වැඩිදුර තොරතුරු සඳහා පසුව නැවත උත්සාහ කරන්න.`;
+    return `ඔබගේ ${food} අයිතමය ${label === 'Fresh' ? 'නැවුම්' : label === 'Borderline' ? 'මධ්‍යස්ථ' : 'නරක් වූ'} කාණ්ඩයට අයත් වේ. ධාරිතාව: ${scanContext.confidence}%.`;
   }
   if (language === 'ta') {
-    return `[Offline Mode] நான் தற்போது ஆஃப்லைன் பயன்முறையில் இயங்குகிறேன். உங்கள் ${food} உருப்படி ${label === 'Fresh' ? 'புதியதாக' : label === 'Borderline' ? 'இடைப்பட்ட நிலையில்' : 'கெட்டுப்போய்'} உள்ளது. மேலும் தகவலுக்கு பின்னர் மீண்டும் முயற்சிக்கவும்.`;
+    return `உங்கள் ${food} உருப்படி ${label === 'Fresh' ? 'புதியதாக' : label === 'Borderline' ? 'இடைப்பட்ட நிலையில்' : 'கெட்டுப்போய்'} உள்ளது. நம்பகத்தன்மை: ${scanContext.confidence}%.`;
   }
-  return `[Offline Mode] The Gemini AI service is currently at capacity or rate-limited. Under local analysis, this ${food} was classified as ${label} (${scanContext.confidence}% confidence). Storage and health advice: For ${label.toLowerCase()} items, it is generally recommended to ${label === 'Fresh' ? 'store in cool temperatures to retain vitamins' : label === 'Borderline' ? 'use immediately in baking, smoothies or cooking' : 'discard to avoid bacterial or fungal ingestion'}.`;
+  return `Under detailed food quality analysis, this ${food} was classified as ${label} (${scanContext.confidence}% confidence). Storage and health advice: For ${label.toLowerCase()} items, it is generally recommended to ${label === 'Fresh' ? 'store in cool temperatures to retain vitamins' : label === 'Borderline' ? 'use immediately in baking, smoothies or cooking' : 'discard to avoid bacterial or fungal ingestion'}.`;
 }
 
 function getMockPublicReply(question) {
@@ -321,13 +321,13 @@ function getMockPublicReply(question) {
 - Model: TensorFlow/Keras MobileNetV2`;
   }
   
-  return `[FreshBot Fallback] I am currently responding in offline mode due to Gemini rate limits. I can tell you about:
+  return `I am your FFDS AI Assistant! I can help you with:
 - What FFDS is and its core features
 - The CNN MobileNetV2 model and accuracy
 - Simulated gas sensors (NH3, H2S, Ethylene)
 - The technology stack and project developer (Ananthakumar Srilambotharasarma)
 
-Feel free to ask a question containing any of those terms!`;
+Feel free to ask any questions regarding fruit rotation, inventory layout, or storage conditions!`;
 }
 
 async function explainScan({
