@@ -112,15 +112,14 @@ async function resolveFoodType(imageBuffer, mimeType, cnnInput) {
  *   Fruits:     Apple, Banana, Mango, Orange, Strawberry
  *   Vegetables: Bellpepper, Carrot, Cucumber, Potato, Tomato
  * Returns a plain string matching one of the 10 dataset class names.
+ * Tries multiple Gemini model versions as fallback for reliability on live.
  */
 async function identifyFoodFromImage(imageBuffer, mimeType) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY not configured');
   }
-  try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    const result = await model.generateContent([
-      `You are a food image classifier for the FFDS system. Look at this image and identify the food.
+
+  const VISION_PROMPT = `You are a food image classifier for the FFDS system. Look at this image and identify the food.
 
 This system ONLY handles these 10 specific food items. You MUST choose from exactly this list:
 
@@ -146,30 +145,43 @@ IMPORTANT RULES:
 5. If the image shows oranges (round bumpy orange citrus) → answer: Orange
 6. If you are unsure, pick the CLOSEST match from the 10 options above.
 
-What food is in this image? (one word only)`,
-      {
-        inlineData: {
-          mimeType: mimeType || 'image/jpeg',
-          data: imageBuffer.toString('base64'),
-        },
-      },
-    ]);
-    const raw = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
-    // Take only the first word — Gemini should return exactly one word
-    const word = raw.split(/\s+/)[0];
-    const normalized = normalizeFoodTypeName(word);
-    console.log(`[identifyFoodFromImage] Gemini raw: "${raw}" → normalized: "${normalized}" → dataset valid: ${isDatasetClass(normalized)}`);
-    // Only accept if it's a valid dataset class name
-    if (isDatasetClass(normalized)) {
-      return normalized;
+What food is in this image? (one word only)`;
+
+  const imagePart = {
+    inlineData: {
+      mimeType: mimeType || 'image/jpeg',
+      data: imageBuffer.toString('base64'),
+    },
+  };
+
+  // Try multiple models in order — some keys have quotas or restrictions per model
+  const VISION_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+
+  let lastErr = null;
+  for (const modelName of VISION_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([VISION_PROMPT, imagePart]);
+      const raw = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
+      // Take only the first word — Gemini should return exactly one word
+      const word = raw.split(/\s+/)[0];
+      const normalized = normalizeFoodTypeName(word);
+      console.log(`[identifyFoodFromImage] ${modelName} raw: "${raw}" → normalized: "${normalized}" → dataset valid: ${isDatasetClass(normalized)}`);
+      // Only accept if it's a valid dataset class name
+      if (isDatasetClass(normalized)) {
+        return normalized;
+      }
+      // Gemini returned something outside the 10 classes — try next model
+      console.warn(`[identifyFoodFromImage] "${normalized}" is NOT a dataset class via ${modelName} — trying next model`);
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[identifyFoodFromImage] ${modelName} failed: ${err.message} — trying next model`);
     }
-    // If Gemini returned something outside the 10 classes, log it and return null
-    console.warn(`[identifyFoodFromImage] "${normalized}" is NOT a dataset class — rejecting`);
-    return 'Food Item';
-  } catch (err) {
-    console.error('[identifyFoodFromImage] Gemini failed:', err.message);
-    throw err; // Re-throw so resolveFoodType can fall back to CNN
   }
+
+  // All models failed
+  console.error('[identifyFoodFromImage] All Gemini models failed:', lastErr?.message);
+  throw lastErr || new Error('All Gemini Vision models failed');
 }
 
 // FFDS project knowledge for the public chatbot system prompt
