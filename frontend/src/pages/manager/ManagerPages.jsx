@@ -698,7 +698,7 @@ export function ManagerScanHistory() {
             <span>📜</span> Business Scan Audit Logs
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Complete records of all staff audits, classification confidence, and sensor readouts.
+            Complete records of all audit scans, classification confidence, and sensor readouts.
           </p>
         </div>
       </div>
