@@ -15,14 +15,20 @@ const UPLOAD_DIR = path.join(__dirname, '../../uploads');
 const REPORTS_DIR = path.join(__dirname, '../../uploads/reports');
 
 function saveImage(buffer, mimetype) {
-  if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+    const ext = mimetype === 'image/png' ? '.png' : '.jpg';
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    const filepath = path.join(UPLOAD_DIR, filename);
+    fs.writeFileSync(filepath, buffer);
+    return `/uploads/${filename}`;
+  } catch (err) {
+    console.warn(`[farmerController] Local disk write failed: ${err.message}. Falling back to Base64 data URI.`);
+    const base64 = buffer.toString('base64');
+    return `data:${mimetype || 'image/jpeg'};base64,${base64}`;
   }
-  const ext = mimetype === 'image/png' ? '.png' : '.jpg';
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-  const filepath = path.join(UPLOAD_DIR, filename);
-  fs.writeFileSync(filepath, buffer);
-  return `/uploads/${filename}`;
 }
 
 async function getDashboard(req, res, next) {
@@ -97,8 +103,8 @@ async function batchScan(req, res, next) {
       const gasReadings = generateGasReadings(cnnResult.label, cnnResult.confidence);
       const imageUrl = saveImage(buffer, mimetype);
 
-      // Resolve food type
-      const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult.foodType);
+      // Resolve food type — pass full cnnResult object so isMock flag is preserved
+      const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult);
 
       // Get explanation
       let explanation = '';
