@@ -15,7 +15,9 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 
 // Dynamic CORS configuration for production deployment
 const allowedOrigins = process.env.CORS_ORIGIN 
@@ -54,8 +56,15 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use('/assets/images', express.static(path.join(__dirname, '../assets/images')));
+
+const staticHeaderMiddleware = (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+};
+
+app.use('/uploads', staticHeaderMiddleware, express.static(path.join(__dirname, '../uploads')));
+app.use('/assets/images', staticHeaderMiddleware, express.static(path.join(__dirname, '../assets/images')));
 
 app.use('/auth', authRoutes);
 app.use('/scan', scanRoutes);

@@ -200,7 +200,7 @@ export default function ManagerDashboardPage() {
       <div className="glass p-6 rounded-2xl space-y-4 border border-white/10">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <span>📜</span> Recent Staff Audit Scans
+            <span>📜</span> Recent Audit Scans
           </h3>
           <Link
             to="/manager/scans"
