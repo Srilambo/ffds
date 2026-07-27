@@ -16,6 +16,25 @@ const userSchema = new mongoose.Schema(
       pushEnabled: { type: Boolean, default: true },
       reminderDays: { type: Number, default: 2, min: 1, max: 14 },
     },
+    phone: { type: String, default: '' },
+    postalCode: { type: String, default: '' },
+    address: { type: String, default: '' },
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+        default: [79.8612, 6.9271],
+      },
+    },
+    cardDetails: {
+      cardHolderName: { type: String, default: '' },
+      cardNumberMasked: { type: String, default: '' },
+      expiryDate: { type: String, default: '' },
+    },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now },
