@@ -11,7 +11,9 @@ const inventoryRoutes = require('./routes/inventory');
 const notificationRoutes = require('./routes/notifications');
 const managerRoutes = require('./routes/manager');
 const farmerRoutes = require('./routes/farmer');
-const adminRoutes = require('./routes/admin');
+const adminRoutes  = require('./routes/admin');
+const shopRoutes   = require('./routes/shops');
+const orderRoutes  = require('./routes/orders');
 
 const app = express();
 
@@ -73,8 +75,10 @@ app.use('/chat', chatRoutes);
 app.use('/inventory', inventoryRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/manager', managerRoutes);
-app.use('/farmer', farmerRoutes);
-app.use('/admin', adminRoutes);
+app.use('/farmer',  farmerRoutes);
+app.use('/admin',   adminRoutes);
+app.use('/shops',   shopRoutes);
+app.use('/orders',  orderRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -936,3 +936,219 @@ export function AdminAnnouncements() {
     </div>
   );
 }
+
+
+// ─────────────────────────────────────────────────────────────
+// 🗺️ AdminShopsMap Component
+// ─────────────────────────────────────────────────────────────
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+const adminShopIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34],
+});
+
+export function AdminShopsMap() {
+  const [shops, setShops] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+
+  const fetchShops = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (filterCategory) params.category = filterCategory;
+      const { data } = await api.get('/shops/all', { params });
+      setShops(data);
+    } catch (err) {
+      console.error('Failed to load admin shops:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchShops(), 300);
+    return () => clearTimeout(timer);
+  }, [search, filterCategory]);
+
+  const handleToggleVerify = async (shopId) => {
+    try {
+      const { data } = await api.patch(`/shops/${shopId}/verify`);
+      setShops((prev) =>
+        prev.map((s) => (s._id === shopId ? { ...s, isVerified: data.shop.isVerified } : s))
+      );
+    } catch (err) {
+      alert('Failed to update shop verification');
+    }
+  };
+
+  const handleDeleteShop = async (shopId) => {
+    if (!window.confirm('Are you sure you want to remove this shop listing?')) return;
+    try {
+      await api.delete(`/shops/${shopId}`);
+      setShops((prev) => prev.filter((s) => s._id !== shopId));
+    } catch (err) {
+      alert('Failed to delete shop');
+    }
+  };
+
+  const defaultCenter = shops.length > 0 && shops[0].location?.coordinates
+    ? [shops[0].location.coordinates[1], shops[0].location.coordinates[0]]
+    : [6.9271, 79.8612];
+
+  return (
+    <div className="space-y-6 fade-up">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <span>🗺️</span> Admin Stores Map & Management
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Global overview of all registered manager shops, location pins & verification controls.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-purple-400 font-bold px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20">
+            {shops.length} Store(s) Total
+          </span>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="glass p-4 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-3">
+        <input
+          type="text"
+          placeholder="Search store name or address..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input-dark flex-1 px-3.5 py-2 text-xs rounded-xl w-full"
+        />
+        <select
+          value={filterCategory}
+          onChange={(e) => setFilterCategory(e.target.value)}
+          className="input-dark px-3 py-2 text-xs rounded-xl cursor-pointer w-full sm:w-auto"
+        >
+          <option value="">All Categories</option>
+          <option value="grocery">Grocery</option>
+          <option value="produce">Produce</option>
+          <option value="supermarket">Supermarket</option>
+          <option value="organic">Organic</option>
+        </select>
+        <button onClick={fetchShops} className="btn-glow px-4 py-2 rounded-xl text-white text-xs font-semibold shrink-0">
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* Interactive Map */}
+      <div className="glass rounded-2xl overflow-hidden border border-white/10" style={{ height: '450px' }}>
+        {loading ? (
+          <div className="h-full flex items-center justify-center text-slate-400 text-sm animate-pulse">
+            Loading stores map data...
+          </div>
+        ) : (
+          <MapContainer center={defaultCenter} zoom={11} style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {shops.map((shop) => {
+              const coords = shop.location?.coordinates;
+              if (!coords || (coords[0] === 0 && coords[1] === 0)) return null;
+              return (
+                <Marker key={shop._id} position={[coords[1], coords[0]]} icon={adminShopIcon}>
+                  <Popup>
+                    <div className="space-y-1 p-1">
+                      <p className="font-bold text-sm text-slate-900">{shop.shopName}</p>
+                      <p className="text-xs text-slate-600">{shop.address}</p>
+                      <p className="text-[11px] text-slate-500">Manager: {shop.managerName || 'Manager'}</p>
+                      <div className="pt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleVerify(shop._id)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded ${
+                            shop.isVerified ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {shop.isVerified ? 'Unverify' : 'Verify Store'}
+                        </button>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })}
+          </MapContainer>
+        )}
+      </div>
+
+      {/* Stores List Table */}
+      <div className="glass p-6 rounded-2xl space-y-4 border border-white/10">
+        <h3 className="text-lg font-bold text-white">Registered Stores Directory</h3>
+        {shops.length === 0 ? (
+          <p className="text-slate-400 text-xs">No stores match your search query.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="text-slate-400 border-b border-white/10 uppercase tracking-wider">
+                  <th className="pb-3 pr-4">Shop Name</th>
+                  <th className="pb-3 pr-4">Category</th>
+                  <th className="pb-3 pr-4">Address</th>
+                  <th className="pb-3 pr-4">Manager</th>
+                  <th className="pb-3 pr-4">Verified</th>
+                  <th className="pb-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {shops.map((shop) => (
+                  <tr key={shop._id} className="hover:bg-white/5 transition-all">
+                    <td className="py-3 pr-4 font-bold text-white">{shop.shopName}</td>
+                    <td className="py-3 pr-4 capitalize text-slate-300">{shop.category}</td>
+                    <td className="py-3 pr-4 text-slate-400 max-w-xs truncate">{shop.address}</td>
+                    <td className="py-3 pr-4 text-slate-300">
+                      <div>{shop.managerName}</div>
+                      <div className="text-[10px] text-slate-500">{shop.managerEmail}</div>
+                    </td>
+                    <td className="py-3 pr-4">
+                      {shop.isVerified ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">✓ Verified</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Unverified</span>
+                      )}
+                    </td>
+                    <td className="py-3 text-right space-x-2">
+                      <button
+                        onClick={() => handleToggleVerify(shop._id)}
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 transition-all"
+                      >
+                        {shop.isVerified ? 'Unverify' : 'Verify'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteShop(shop._id)}
+                        className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

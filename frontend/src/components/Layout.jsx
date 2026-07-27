@@ -47,12 +47,15 @@ function Layout() {
           { to: '/admin/languages',     label: t('nav.admin.languages', 'Languages'), icon: '🌐' },
           { to: '/admin/reports',       label: t('nav.admin.reports', 'System Audit'), icon: '📄' },
           { to: '/admin/announcements', label: t('nav.admin.announcements', 'Announcements'), icon: '📢' },
+          { to: '/admin/shops-map',     label: 'Shops Map', icon: '🗺️' },
         ];
       case 'manager':
       case 'farmer':
         return [
           { to: '/manager/dashboard',     label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
           { to: '/manager/inventory',     label: t('nav.inventory', 'Stock Control'), icon: '🍎' },
+          { to: '/manager/shop-profile',  label: 'Shop Profile', icon: '🏪' },
+          { to: '/manager/orders',        label: 'Orders', icon: '📦' },
           { to: '/manager/batch-scan',    label: 'Bulk Scan', icon: '📦' },
           { to: '/manager/scans',         label: t('nav.manager.scans', 'Scan Logs'), icon: '📜' },
           { to: '/manager/waste',         label: t('nav.manager.waste', 'Waste Analytics'), icon: '📉' },
@@ -61,12 +64,12 @@ function Layout() {
       case 'consumer':
       default:
         return [
-          { to: '/home',                  label: t('nav.scan', 'Scan'), icon: '🔍' },
-          { to: '/consumer/pantry',       label: 'My Fridge', icon: '🧊' },
-          { to: '/consumer/history',      label: t('nav.consumer.history', 'History'), icon: '📜' },
-          { to: '/consumer/recipes',      label: t('nav.consumer.recipes', 'Recipes'), icon: '🍳' },
+          { to: '/home',                   label: t('nav.scan', 'Scan'), icon: '🔍' },
+          { to: '/consumer/pantry',        label: 'My Fridge', icon: '🧊' },
+          { to: '/consumer/history',       label: t('nav.consumer.history', 'History'), icon: '📜' },
+          { to: '/consumer/recipes',       label: t('nav.consumer.recipes', 'Recipes'), icon: '🍳' },
           { to: '/consumer/shopping-list', label: t('nav.consumer.shoppingList', 'Shopping List'), icon: '📋' },
-          { to: '/consumer/settings',     label: t('nav.consumer.settings', 'Settings'), icon: '⚙️' },
+          { to: '/consumer/settings',      label: t('nav.consumer.settings', 'Settings'), icon: '⚙️' },
         ];
     }
   };

@@ -1429,11 +1429,414 @@ export function BatchScan() {
 }
 
 
+// ============================================
+// MANAGER SHOP PROFILE
+// ============================================
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import { useSocket } from '../../context/SocketContext';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+function MapPinPicker({ position, onPick }) {
+  useMapEvents({
+    click(e) { onPick([e.latlng.lat, e.latlng.lng]); },
+  });
+  return position ? <Marker position={position} /> : null;
+}
+
+export function ManagerShopProfile() {
+  const { user } = useAuth();
+  const [form, setForm] = React.useState({
+    shopName: '', address: '', phone: '', category: 'grocery', hours: '8am – 9pm', isOpen: true,
+  });
+  const [pinPos,   setPinPos]   = React.useState(null); // [lat, lng]
+  const [saving,   setSaving]   = React.useState(false);
+  const [success,  setSuccess]  = React.useState('');
+  const [error,    setError]    = React.useState('');
+  const [shop,     setShop]     = React.useState(null);
+  const [loading,  setLoading]  = React.useState(true);
+  const [stockInput, setStockInput] = React.useState('');
+  const [stockList,  setStockList]  = React.useState([]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get('/shops/my');
+        setShop(data);
+        setForm({
+          shopName: data.shopName || '',
+          address:  data.address  || '',
+          phone:    data.phone    || '',
+          category: data.category || 'grocery',
+          hours:    data.hours    || '8am – 9pm',
+          isOpen:   data.isOpen   !== false,
+        });
+        if (data.location?.coordinates) {
+          setPinPos([data.location.coordinates[1], data.location.coordinates[0]]);
+        }
+        setStockList(data.stockSummary || []);
+      } catch {
+        // no shop yet, start fresh
+      } finally { setLoading(false); }
+    })();
+  }, []);
+
+  const addStock = () => {
+    if (!stockInput.trim()) return;
+    setStockList((p) => [...p, { name: stockInput.trim(), inStock: true, price: 0 }]);
+    setStockInput('');
+  };
+  const removeStock = (i) => setStockList((p) => p.filter((_, idx) => idx !== i));
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true); setError(''); setSuccess('');
+    try {
+      const payload = {
+        ...form,
+        location: { type: 'Point', coordinates: pinPos ? [pinPos[1], pinPos[0]] : [0, 0] },
+        stockSummary: stockList,
+      };
+      const { data } = await api.post('/shops', payload);
+      setShop(data.shop);
+      setSuccess('Shop profile saved successfully!');
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to save shop');
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64 text-slate-400 text-sm animate-pulse">Loading shop profile...</div>;
+
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto fade-up">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            🏪 Shop Profile
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">Set up your shop location, hours, and stock for consumers to find you.</p>
+        </div>
+        {shop?.isVerified && (
+          <span className="text-[10px] px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+            ✓ Verified Shop
+          </span>
+        )}
+      </div>
+
+      <form onSubmit={handleSave} className="space-y-5">
+        {error   && <div className="glass border border-red-500/20 bg-red-500/5 text-red-400 text-sm px-4 py-3 rounded-xl">⚠️ {error}</div>}
+        {success && <div className="glass border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 text-sm px-4 py-3 rounded-xl">✅ {success}</div>}
+
+        <div className="glass rounded-2xl border border-white/10 p-5 space-y-4">
+          <p className="text-xs font-bold text-slate-400 uppercase">Basic Info</p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase">Shop Name *</label>
+              <input type="text" value={form.shopName} onChange={e => setForm({...form, shopName: e.target.value})} required className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" placeholder="e.g. Fresh Garden Market" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase">Phone</label>
+              <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" placeholder="+94 77 123 4567" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-slate-400 uppercase">Address *</label>
+            <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})} required className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" placeholder="123 Main Street, Colombo 3" />
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase">Category</label>
+              <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl">
+                {['grocery','produce','supermarket','convenience','organic','other'].map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase">Opening Hours</label>
+              <input type="text" value={form.hours} onChange={e => setForm({...form, hours: e.target.value})} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" placeholder="8am – 9pm" />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-400 uppercase">Status</label>
+              <button type="button" onClick={() => setForm({...form, isOpen: !form.isOpen})} className={`w-full py-2.5 rounded-xl text-xs font-bold border transition-all ${form.isOpen ? 'bg-brand-500/20 text-brand-300 border-brand-500/30' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                {form.isOpen ? '🟢 Open' : '🔴 Closed'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Map location picker */}
+        <div className="glass rounded-2xl border border-white/10 p-5 space-y-3">
+          <p className="text-xs font-bold text-slate-400 uppercase">Shop Location</p>
+          <p className="text-xs text-slate-400">Click on the map to drop your shop pin.</p>
+          {pinPos && (
+            <p className="text-[10px] font-mono text-brand-300">📍 {pinPos[0].toFixed(5)}, {pinPos[1].toFixed(5)}</p>
+          )}
+          <div className="rounded-xl overflow-hidden border border-white/10" style={{ height: 320 }}>
+            <MapContainer
+              center={pinPos || [6.9271, 79.8612]}
+              zoom={13}
+              style={{ height: '100%', width: '100%' }}
+              scrollWheelZoom={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MapPinPicker position={pinPos} onPick={setPinPos} />
+            </MapContainer>
+          </div>
+        </div>
+
+        {/* Stock summary */}
+        <div className="glass rounded-2xl border border-white/10 p-5 space-y-3">
+          <p className="text-xs font-bold text-slate-400 uppercase">Stock Items (shown to consumers)</p>
+          <div className="flex gap-2">
+            <input type="text" value={stockInput} onChange={e => setStockInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addStock())} placeholder="e.g. Red Apples, Organic Spinach..." className="input-dark flex-1 px-3 py-2 text-xs rounded-xl" />
+            <button type="button" onClick={addStock} className="btn-glow px-4 py-2 rounded-xl text-white text-xs font-semibold">+ Add</button>
+          </div>
+          {stockList.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {stockList.map((s, i) => (
+                <div key={i} className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">
+                  <span className="text-[10px] text-slate-300">{s.name}</span>
+                  <button type="button" onClick={() => removeStock(i)} className="text-slate-500 hover:text-red-400 text-[10px] leading-none">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <button type="submit" disabled={saving} className="btn-glow w-full py-3 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2">
+          {saving ? <><span className="spinner" /> Saving...</> : '💾 Save Shop Profile'}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 
+// ============================================
+// MANAGER ORDERS QUEUE
+// ============================================
+const ORDER_STATUS_META = {
+  pending:          { label: 'Pending',          cls: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  confirmed:        { label: 'Confirmed',         cls: 'bg-brand-500/20 text-brand-300 border-brand-500/30' },
+  preparing:        { label: 'Preparing',         cls: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  out_for_delivery: { label: 'Out for Delivery',  cls: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+  delivered:        { label: 'Delivered',          cls: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  rejected:         { label: 'Rejected',           cls: 'bg-red-500/20 text-red-300 border-red-500/30' },
+};
 
+export function ManagerOrders() {
+  const { socket } = useSocket();
+  const [orders,     setOrders]     = React.useState([]);
+  const [shopId,     setShopId]     = React.useState(null);
+  const [loading,    setLoading]    = React.useState(true);
+  const [newOrderId, setNewOrderId] = React.useState(null); // flash highlight
+  const [filter,     setFilter]     = React.useState('all');
+  const [rejectId,   setRejectId]   = React.useState(null);
+  const [rejectReason, setRejectReason] = React.useState('');
 
+  // Load shop + orders
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const shopRes = await api.get('/shops/my');
+        setShopId(shopRes.data._id);
+        const ordRes = await api.get('/orders/manager');
+        setOrders(ordRes.data);
+      } catch {
+        setOrders([]);
+      } finally { setLoading(false); }
+    })();
+  }, []);
 
+  // Socket.io: join shop room and listen for new orders
+  React.useEffect(() => {
+    if (!socket || !shopId) return;
+    socket.emit('join_shop', shopId);
+    socket.on('new_order', (order) => {
+      setOrders((prev) => [order, ...prev]);
+      setNewOrderId(order.orderId);
+      setTimeout(() => setNewOrderId(null), 3000);
+    });
+    return () => {
+      socket.off('new_order');
+      socket.emit('leave_shop', shopId);
+    };
+  }, [socket, shopId]);
 
+  const updateStatus = async (orderId, status, extra = {}) => {
+    try {
+      const { data } = await api.patch(`/orders/${orderId}/status`, { status, ...extra });
+      setOrders((prev) => prev.map((o) => (o._id === orderId || o.orderId === orderId) ? { ...o, status } : o));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update status');
+    }
+  };
 
+  const handleReject = async () => {
+    if (!rejectId) return;
+    await updateStatus(rejectId, 'rejected', { rejectionReason: rejectReason });
+    setRejectId(null); setRejectReason('');
+  };
 
+  const filteredOrders = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+  const counts = { pending: 0, confirmed: 0, preparing: 0, out_for_delivery: 0, delivered: 0, rejected: 0 };
+  orders.forEach((o) => { if (counts[o.status] !== undefined) counts[o.status]++; });
+
+  if (loading) return <div className="flex items-center justify-center h-64 text-slate-400 text-sm animate-pulse">Loading orders...</div>;
+
+  if (!shopId) {
+    return (
+      <div className="glass rounded-2xl p-12 text-center border border-white/10 space-y-3 fade-up">
+        <span className="text-5xl">🏪</span>
+        <h2 className="text-xl font-extrabold text-white">No Shop Profile Yet</h2>
+        <p className="text-slate-400 text-sm">Set up your shop profile first so consumers can find and order from you.</p>
+        <a href="/manager/shop-profile" className="inline-block btn-glow px-6 py-2.5 rounded-xl text-white text-sm font-semibold mt-2">Set Up Shop →</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 fade-up">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            📦 Orders Queue
+            {counts.pending > 0 && (
+              <span className="h-6 w-6 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center animate-bounce">
+                {counts.pending}
+              </span>
+            )}
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">Real-time incoming orders. Accept, prepare, and fulfil.</p>
+        </div>
+        <button onClick={async () => { const r = await api.get('/orders/manager'); setOrders(r.data); }} className="text-xs text-brand-400 hover:text-brand-300 font-semibold">↻ Refresh</button>
+      </div>
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {Object.entries(ORDER_STATUS_META).map(([key, meta]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(filter === key ? 'all' : key)}
+            className={`glass p-2.5 rounded-xl border text-center transition-all ${filter === key ? meta.cls : 'border-white/10 hover:bg-white/5'}`}
+          >
+            <p className="text-lg font-black text-white">{counts[key]}</p>
+            <p className="text-[9px] text-slate-400 uppercase font-semibold leading-tight mt-0.5">{meta.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Orders list */}
+      <div className="space-y-3">
+        {filteredOrders.length === 0 ? (
+          <div className="glass rounded-2xl p-12 text-center border border-white/10 space-y-2">
+            <span className="text-4xl">📭</span>
+            <p className="text-white font-bold text-sm">{filter === 'all' ? 'No orders yet' : `No ${filter} orders`}</p>
+            <p className="text-xs text-slate-400">New orders will appear here in real-time.</p>
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const meta = ORDER_STATUS_META[order.status] || ORDER_STATUS_META.pending;
+            const isNew = order._id === newOrderId || order.orderId === newOrderId;
+            const orderId = order._id || order.orderId;
+            return (
+              <div
+                key={orderId}
+                className={`glass rounded-2xl p-5 border transition-all ${isNew ? 'border-brand-500/50 bg-brand-500/5 scale-[1.01]' : 'border-white/10'} space-y-3`}
+                style={{ transition: 'all 0.4s ease' }}
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-bold text-white text-sm">
+                      {isNew && <span className="text-brand-400 mr-2 animate-pulse">🆕 NEW</span>}
+                      {order.consumerId?.name || order.consumerName || 'Customer'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{new Date(order.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full border font-bold ${meta.cls}`}>{meta.label}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-300">
+                      {order.paymentMethod === 'card' ? '💳 Card' : '💵 Cash'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="flex flex-wrap gap-1.5 text-[10px]">
+                  {(order.items || []).map((item, i) => (
+                    <span key={i} className="bg-white/5 border border-white/10 rounded-full px-2 py-0.5 text-slate-300">
+                      {item.emoji || '🛒'} {item.name} × {item.qty}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Action buttons */}
+                {order.status === 'pending' && (
+                  <div className="flex gap-2 pt-1 border-t border-white/5 flex-wrap">
+                    <button onClick={() => updateStatus(orderId, 'confirmed')} className="px-4 py-2 rounded-xl bg-brand-500/20 border border-brand-500/30 text-brand-300 text-xs font-semibold hover:bg-brand-500/30 transition-all">
+                      ✅ Accept
+                    </button>
+                    <button onClick={() => setRejectId(orderId)} className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-all">
+                      ❌ Reject
+                    </button>
+                  </div>
+                )}
+                {order.status === 'confirmed' && (
+                  <div className="flex gap-2 pt-1 border-t border-white/5">
+                    <button onClick={() => updateStatus(orderId, 'preparing')} className="px-4 py-2 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-semibold hover:bg-blue-500/30 transition-all">
+                      👨‍🍳 Start Preparing
+                    </button>
+                  </div>
+                )}
+                {order.status === 'preparing' && (
+                  <div className="flex gap-2 pt-1 border-t border-white/5">
+                    <button onClick={() => updateStatus(orderId, 'out_for_delivery')} className="px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-semibold hover:bg-purple-500/30 transition-all">
+                      🚴 Out for Delivery
+                    </button>
+                  </div>
+                )}
+                {order.status === 'out_for_delivery' && (
+                  <div className="flex gap-2 pt-1 border-t border-white/5">
+                    <button onClick={() => updateStatus(orderId, 'delivered')} className="px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold hover:bg-emerald-500/30 transition-all">
+                      🎉 Mark Delivered
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Rejection modal */}
+      {rejectId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="glass rounded-2xl border border-white/10 w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-lg font-bold text-white">Reject Order</h3>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection (optional)..."
+              className="input-dark w-full px-3.5 py-3 text-xs rounded-xl resize-none"
+              rows={3}
+            />
+            <div className="flex gap-3">
+              <button onClick={handleReject} className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold hover:bg-red-500/30 transition-all">Confirm Reject</button>
+              <button onClick={() => { setRejectId(null); setRejectReason(''); }} className="flex-1 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 text-xs font-bold hover:bg-white/10 transition-all">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
