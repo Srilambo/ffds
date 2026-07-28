@@ -1,7 +1,11 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const MODEL_NAME = 'gemini-2.0-flash';
+function getGenAI() {
+  const apiKey = (process.env.GEMINI_API_KEY || '').replace(/['"]/g, '').trim();
+  return new GoogleGenerativeAI(apiKey);
+}
+
+const MODEL_NAME = 'gemini-1.5-flash';
 
 const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
 
@@ -180,13 +184,13 @@ What food is in this image? (one word only)`;
     },
   };
 
-  // Try multiple models in order — some keys have quotas or restrictions per model
-  const VISION_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  // Try multiple models in order — gemini-1.5-flash is most reliable on production keys
+  const VISION_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'];
 
   let lastErr = null;
   for (const modelName of VISION_MODELS) {
     try {
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const model = getGenAI().getGenerativeModel({ model: modelName });
       const result = await model.generateContent([VISION_PROMPT, imagePart]);
       const rawText = result.response.text().trim();
       const normalized = normalizeFoodTypeName(rawText);
@@ -384,7 +388,7 @@ async function explainScan({
       resolvedFoodType = await identifyFoodFromImage(imageBuffer, mimeType);
     }
 
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = getGenAI().getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildScanPrompt({
       foodType: resolvedFoodType,
       label,
@@ -415,7 +419,7 @@ async function explainScan({
 
 async function answerFollowUp({ scanContext, chatHistory, question, language }) {
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = getGenAI().getGenerativeModel({ model: MODEL_NAME });
 
     let langInstruction = 'Respond in English.';
     if (language === 'si') {
@@ -573,7 +577,7 @@ function getMockCombinedAdvisorAdvice({
 
 async function explainCombinedAdvisor(params) {
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = getGenAI().getGenerativeModel({ model: MODEL_NAME });
     const prompt = buildCombinedAdvisorPrompt(params);
 
     const result = await model.generateContent([{ text: prompt }]);
@@ -657,7 +661,7 @@ async function generateRecipesWithGemini({ ingredients = [], language = 'en' }) 
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const model = getGenAI().getGenerativeModel({ model: MODEL_NAME });
     const prompt = `You are an expert zero-waste AI chef.
 The user currently has these active food ingredients in their fridge/pantry: ${ingNames.join(', ')}.
 
