@@ -54,31 +54,61 @@ async function getMyShop(req, res, next) {
 // ─── Consumer: nearby shops ───────────────────────────────────
 async function getNearbyShops(req, res, next) {
   try {
-    const { lat, lng, radius = 10000 } = req.query; // radius in metres, default 10 km
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'lat and lng query params required' });
+    const { lat, lng, radius = 500000 } = req.query; // radius in metres, default 500 km
+    const targetLat = parseFloat(lat);
+    const targetLng = parseFloat(lng);
+
+    let shops = [];
+    if (!isNaN(targetLat) && !isNaN(targetLng)) {
+      try {
+        shops = await Shop.find({
+          location: {
+            $near: {
+              $geometry: { type: 'Point', coordinates: [targetLng, targetLat] },
+              $maxDistance: parseFloat(radius),
+            },
+          },
+          isOpen: true,
+        }).limit(30);
+      } catch (e) {
+        shops = await Shop.find({ isOpen: true }).limit(50);
+      }
     }
 
-    const shops = await Shop.find({
-      location: {
-        $near: {
-          $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
-          $maxDistance: parseFloat(radius),
-        },
-      },
-      isOpen: true,
-    }).limit(30);
+    if (!shops || shops.length === 0) {
+      shops = await Shop.find({ isOpen: true }).limit(50);
+    }
 
-    // Enrich with manager name
     const managerIds = [...new Set(shops.map((s) => s.managerId.toString()))];
     const managers = await User.find({ _id: { $in: managerIds } }).select('name email');
     const managerMap = {};
     managers.forEach((m) => { managerMap[m._id.toString()] = m; });
 
-    const result = shops.map((s) => ({
-      ...s.toObject(),
-      managerName: managerMap[s.managerId.toString()]?.name || 'Manager',
-    }));
+    const result = shops.map((s) => {
+      const obj = s.toObject();
+      const shopLng = obj.location?.coordinates?.[0] || (targetLng || 80.0167);
+      const shopLat = obj.location?.coordinates?.[1] || (targetLat || 9.7833);
+
+      let distanceKm = 0;
+      if (!isNaN(targetLat) && !isNaN(targetLng)) {
+        const dLat = ((shopLat - targetLat) * Math.PI) / 180;
+        const dLng = ((shopLng - targetLng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((targetLat * Math.PI) / 180) * Math.cos((shopLat * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        distanceKm = Math.round(6371 * c * 10) / 10;
+      }
+
+      return {
+        ...obj,
+        managerName: managerMap[s.managerId.toString()]?.name || 'Manager',
+        distanceKm: distanceKm,
+        coords: [shopLat, shopLng],
+      };
+    });
+
+    result.sort((a, b) => a.distanceKm - b.distanceKm);
 
     return res.status(200).json(result);
   } catch (err) {

@@ -80,31 +80,51 @@ export default function OrderCheckoutModalWidget({
         {/* 5 Suggested Proximity Stores Cards Selector */}
         <div className="space-y-2">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Store ({nearbyShops.length} Suggested Stores)</span>
-          <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
             {nearbyShops.map((shop) => {
               const isSelected = selectedShop?._id === shop._id;
+              const hasStock = Array.isArray(shop.stockSummary) && shop.stockSummary.length > 0;
               return (
                 <div
                   key={shop._id}
                   onClick={() => onSelectShop(shop)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 ${
                     isSelected ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">🏪</span>
-                    <div>
-                      <p className="font-bold text-xs flex items-center gap-1.5">
-                        {shop.shopName}
-                        {shop.isVerified && <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">✓ Verified</span>}
-                      </p>
-                      <p className="text-[11px] text-slate-400">{shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🏪</span>
+                      <div>
+                        <p className="font-bold text-xs flex items-center gap-1.5">
+                          {shop.shopName}
+                          {shop.isVerified && <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">✓ Verified</span>}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-bold text-brand-300 block">{shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}</span>
+                      <span className="text-[10px] text-slate-400 block">{shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}</span>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-brand-300 block">{shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}</span>
-                    <span className="text-[10px] text-slate-400 block">{shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}</span>
-                  </div>
+
+                  {/* Stock Products Badges from Manager Profile */}
+                  {hasStock && (
+                    <div className="pt-1.5 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                      <span className="text-[10px] text-emerald-400 font-bold uppercase shrink-0">In-Stock Products:</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {shop.stockSummary.slice(0, 4).map((st, sIdx) => (
+                          <span key={sIdx} className="text-[10px] bg-white/10 text-slate-200 px-2 py-0.5 rounded-full font-semibold border border-white/10 whitespace-nowrap">
+                            🛍️ {typeof st === 'string' ? st : st.name}
+                          </span>
+                        ))}
+                        {shop.stockSummary.length > 4 && (
+                          <span className="text-[10px] text-slate-400 font-bold">+{shop.stockSummary.length - 4} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

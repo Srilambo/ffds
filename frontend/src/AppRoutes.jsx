@@ -24,6 +24,7 @@ import {
   AdminReports,
   AdminAnnouncements,
   AdminShopsMap,
+  AdminSettings,
 } from './pages/admin/AdminPages';
 
 // ── Manager pages ────────────────────────────────────────────
@@ -36,6 +37,7 @@ import {
   BatchScan,
   ManagerShopProfile,
   ManagerOrders,
+  ManagerSettings,
 } from './pages/manager/ManagerPages';
 
 // ── Consumer pages ───────────────────────────────────────────
@@ -80,6 +82,7 @@ export default function AppRoutes() {
                 <Route path="/admin/reports"       element={<AdminReports />} />
                 <Route path="/admin/announcements" element={<AdminAnnouncements />} />
                 <Route path="/admin/shops-map"     element={<AdminShopsMap />} />
+                <Route path="/admin/settings"      element={<AdminSettings />} />
 
                 {/* ── Manager routes ── */}
                 <Route path="/manager/dashboard"    element={<ManagerDashboardPage />} />
@@ -91,6 +94,7 @@ export default function AppRoutes() {
                 <Route path="/manager/chatbot"      element={<ManagerChatbot />} />
                 <Route path="/manager/shop-profile" element={<ManagerShopProfile />} />
                 <Route path="/manager/orders"       element={<ManagerOrders />} />
+                <Route path="/manager/settings"     element={<ManagerSettings />} />
 
                 {/* ── Backward-compat redirects for legacy farmer routes ── */}
                 <Route path="/farmer/*" element={<Navigate to="/manager/dashboard" replace />} />
@@ -102,6 +106,7 @@ export default function AppRoutes() {
                 <Route path="/consumer/recipes"       element={<ConsumerRecipes />} />
                 <Route path="/consumer/shopping-list" element={<ConsumerShoppingList />} />
                 <Route path="/consumer/settings"      element={<ConsumerSettings />} />
+                <Route path="/consumer/profile"       element={<ConsumerSettings />} />
 
                 {/* ── Legacy shared routes (backward compat) ── */}
                 <Route path="/inventory" element={<Inventory />} />
