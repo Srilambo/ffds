@@ -7,6 +7,21 @@ import InventoryList from '../components/InventoryList';
 const CATEGORIES = ['fruit','vegetable','dairy','bakery','other'];
 const STATUSES   = ['active','consumed','wasted'];
 
+const PRODUCE_PRESETS = [
+  { name: 'Apple', category: 'fruit', icon: '🍎', days: 14 },
+  { name: 'Mango', category: 'fruit', icon: '🥭', days: 7 },
+  { name: 'Banana', category: 'fruit', icon: '🍌', days: 5 },
+  { name: 'Orange', category: 'fruit', icon: '🍊', days: 10 },
+  { name: 'Strawberry', category: 'fruit', icon: '🍓', days: 4 },
+  { name: 'Tomato', category: 'vegetable', icon: '🍅', days: 7 },
+  { name: 'Carrot', category: 'vegetable', icon: '🥕', days: 14 },
+  { name: 'Potato', category: 'vegetable', icon: '🥔', days: 21 },
+  { name: 'Broccoli', category: 'vegetable', icon: '🥦', days: 5 },
+  { name: 'Onion', category: 'vegetable', icon: '🧅', days: 21 },
+  { name: 'Cucumber', category: 'vegetable', icon: '🥒', days: 7 },
+  { name: 'Spinach', category: 'vegetable', icon: '🥬', days: 5 },
+];
+
 export default function Inventory() {
   const { t } = useTranslation();
   const [items,    setItems]    = useState([]);
@@ -20,6 +35,21 @@ export default function Inventory() {
   });
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
+
+  const calculateAutoExpiry = (purchaseDateStr, shelfDays) => {
+    const base = purchaseDateStr ? new Date(purchaseDateStr) : new Date();
+    base.setDate(base.getDate() + shelfDays);
+    return base.toISOString().split('T')[0];
+  };
+
+  const handleSelectPreset = (preset) => {
+    setForm(prev => ({
+      ...prev,
+      foodName: preset.name,
+      category: preset.category,
+      expiryDate: calculateAutoExpiry(prev.purchaseDate, preset.days),
+    }));
+  };
 
   const load = async () => {
     try {
@@ -66,6 +96,12 @@ export default function Inventory() {
 
   return (
     <div className="space-y-6 fade-up">
+      <datalist id="inventory-produce-datalist">
+        {PRODUCE_PRESETS.map((p) => (
+          <option key={p.name} value={p.name}>{p.icon} {p.name}</option>
+        ))}
+      </datalist>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -131,17 +167,40 @@ export default function Inventory() {
 
       {/* Add form */}
       {showForm && (
-        <div className="glass p-6 fade-up">
-          <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+        <div className="glass p-6 fade-up space-y-4">
+          <h2 className="font-semibold text-white mb-2 flex items-center gap-2">
             <span className="h-6 w-6 rounded-md bg-brand-600/30 text-brand-400 flex items-center justify-center text-xs">+</span>
             Add New Item
           </h2>
+
+          <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
+            <span className="text-xs text-slate-400 font-semibold block">⚡ Quick Select Produce Preset:</span>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+              {PRODUCE_PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  onClick={() => handleSelectPreset(p)}
+                  className={`px-2.5 py-1 text-xs rounded-lg border transition-all flex items-center gap-1 ${
+                    form.foodName.toLowerCase() === p.name.toLowerCase()
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 font-bold'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10 border-white/10'
+                  }`}
+                >
+                  <span>{p.icon}</span>
+                  <span>{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={handleCreate} className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <input
               value={form.foodName}
               onChange={(e) => setForm({ ...form, foodName: e.target.value })}
               className="input-dark px-3 py-2.5 text-sm col-span-2 md:col-span-1"
               placeholder={t('inventory.foodName')}
+              list="inventory-produce-datalist"
               required
             />
             <select

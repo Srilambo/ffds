@@ -1,5 +1,8 @@
 require('dotenv').config();
-const dns = require('dns');
+const dns  = require('dns');
+const http = require('http');
+const { Server: SocketIOServer } = require('socket.io');
+
 // Set DNS servers to Google public DNS to bypass local/ISP DNS issues with MongoDB Atlas SRV records
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
@@ -13,8 +16,48 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ffds';
 const LOCAL_MONGODB_URI = 'mongodb://127.0.0.1:27017/ffds';
 
 function startServer() {
-  const server = app.listen(PORT, () => {
-    console.log(`Core API running on port ${PORT}`);
+  // Wrap express in an HTTP server so Socket.io can attach
+  const httpServer = http.createServer(app);
+
+  // Configure Socket.io
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:5176', 'http://localhost:5177'];
+
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  });
+
+  // Attach io to app so controllers can emit via req.app.get('io')
+  app.set('io', io);
+
+  io.on('connection', (socket) => {
+    // Manager joins their shop room to receive new-order events
+    socket.on('join_shop', (shopId) => {
+      socket.join(`shop:${shopId}`);
+      console.log(`Socket ${socket.id} joined shop:${shopId}`);
+    });
+
+    // Consumer joins their order room to receive status updates
+    socket.on('join_order', (orderId) => {
+      socket.join(`order:${orderId}`);
+      console.log(`Socket ${socket.id} joined order:${orderId}`);
+    });
+
+    socket.on('leave_shop',  (shopId)  => socket.leave(`shop:${shopId}`));
+    socket.on('leave_order', (orderId) => socket.leave(`order:${orderId}`));
+
+    socket.on('disconnect', () => {
+      console.log(`Socket disconnected: ${socket.id}`);
+    });
+  });
+
+  httpServer.listen(PORT, () => {
+    console.log(`Core API + Socket.io running on port ${PORT}`);
   });
 
   // Check inventory expiry every 30 minutes and create alerts
@@ -31,7 +74,7 @@ function startServer() {
   // Run once on startup
   syncAllUsersExpiryNotifications().catch(() => {});
 
-  server.on('error', (err) => {
+  httpServer.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`Port ${PORT} is already in use. Stop the other process or set PORT in .env`);
       console.error(`Windows: netstat -ano | findstr :${PORT}  then  taskkill /PID <pid> /F`);
