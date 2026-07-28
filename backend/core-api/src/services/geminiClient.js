@@ -188,11 +188,9 @@ What food is in this image? (one word only)`;
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent([VISION_PROMPT, imagePart]);
-      const raw = result.response.text().trim().replace(/[^a-zA-Z\s]/g, '').trim();
-      // Take only the first word — Gemini should return exactly one word
-      const word = raw.split(/\s+/)[0];
-      const normalized = normalizeFoodTypeName(word);
-      console.log(`[identifyFoodFromImage] ${modelName} raw: "${raw}" → normalized: "${normalized}" → dataset valid: ${isDatasetClass(normalized)}`);
+      const rawText = result.response.text().trim();
+      const normalized = normalizeFoodTypeName(rawText);
+      console.log(`[identifyFoodFromImage] ${modelName} raw: "${rawText}" → normalized: "${normalized}" → dataset valid: ${isDatasetClass(normalized)}`);
       // Only accept if it's a valid dataset class name
       if (isDatasetClass(normalized)) {
         return normalized;
