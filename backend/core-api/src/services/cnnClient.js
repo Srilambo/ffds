@@ -34,7 +34,8 @@ function tryPythonDirect(imageBuffer) {
     const tmpImg = path.join(__dirname, `../../temp-${Date.now()}.jpg`);
     fs.writeFileSync(tmpImg, imageBuffer);
 
-    const cmd = `"${venvPython}" -m app.food_classifier "${tmpImg}"`;
+    const pythonCode = "import sys, json; from app.model import predict; data = open(sys.argv[1], 'rb').read(); print(json.dumps(predict(data)))";
+    const cmd = `"${venvPython}" -c "${pythonCode}" "${tmpImg}"`;
     const stdout = execSync(cmd, { cwd: cnnDir, timeout: 25000 }).toString();
 
     try { fs.unlinkSync(tmpImg); } catch {}
@@ -44,10 +45,10 @@ function tryPythonDirect(imageBuffer) {
       const parsed = JSON.parse(jsonMatch[0]);
       const name = parsed.foodType || '';
       if (name && name !== 'Food Item' && DATASET_FOOD_SET.has(name.toLowerCase())) {
-        console.log(`[CNN Direct Python] Dataset class: "${name}"`);
+        console.log(`[CNN Direct Python] Dataset class: "${name}", label: "${parsed.label}", confidence: ${parsed.confidence}%`);
         return {
           foodType: name,
-          label: 'Fresh',
+          label: parsed.label || 'Fresh',
           confidence: parsed.confidence || 92.0,
           isMock: false,
         };
