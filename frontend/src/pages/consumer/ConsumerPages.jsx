@@ -35,21 +35,28 @@ const userIcon = userPinIcon;
 
 function FlyToLocation({ center }) {
   const map = useMap();
+  const lat = center?.[0];
+  const lng = center?.[1];
   useEffect(() => {
-    if (center && Array.isArray(center) && center.length === 2 && center[0] && center[1]) {
-      map.setView(center, 14);
+    if (lat && lng) {
+      map.setView([lat, lng], 14);
       setTimeout(() => {
         map.invalidateSize();
       }, 250);
     }
-  }, [center, map]);
+  }, [lat, lng, map]);
   return null;
 }
 
 function MapEventsHandler({ onLocationSelect }) {
   useMapEvents({
     click(e) {
-      if (onLocationSelect) {
+      if (onLocationSelect && e && e.latlng) {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      }
+    },
+    contextmenu(e) {
+      if (onLocationSelect && e && e.latlng) {
         onLocationSelect(e.latlng.lat, e.latlng.lng);
       }
     },
@@ -710,21 +717,35 @@ export function ConsumerShoppingList() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvv: '' });
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [activeChecklistOrder, setActiveChecklistOrder] = useState({
-    _id: 'INV-323809',
-    shopName: 'super fast',
-    totalAmount: 56.60,
-    paymentMethod: 'cash',
-    itemsCount: 5,
-    deliveryOtp: '7413',
+  const [activeChecklistOrder, setActiveChecklistOrder] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ffds_active_order');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const dismissed = sessionStorage.getItem(`ffds_dismissed_order_${parsed._id}`);
+        if (!dismissed) return parsed;
+      }
+    } catch {}
+    return null;
   });
   const [checklistOrderStatus, setChecklistOrderStatus] = useState({ status: 'delivered' });
+
+  const handleDismissOrderTracking = () => {
+    if (activeChecklistOrder?._id) {
+      try {
+        sessionStorage.setItem(`ffds_dismissed_order_${activeChecklistOrder._id}`, 'true');
+        sessionStorage.removeItem('ffds_active_order');
+      } catch {}
+    }
+    setActiveChecklistOrder(null);
+  };
   const [deliveryRiderPos, setDeliveryRiderPos] = useState([9.7845, 80.0270]);
   const [showBillHistoryModal, setShowBillHistoryModal] = useState(false);
   const [viewReceipt, setViewReceipt] = useState(null);
 
   // Review & Rating State
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showAutoFridgePrompt, setShowAutoFridgePrompt] = useState(false);
   const [riderRating, setRiderRating] = useState(5);
   const [storeRating, setStoreRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -852,6 +873,7 @@ export function ConsumerShoppingList() {
     } catch { }
 
     setShowReviewModal(false);
+    handleDismissOrderTracking();
     setSyncMsg('⭐ Thank you! Your delivery & produce review has been submitted successfully.');
     setTimeout(() => setSyncMsg(''), 5000);
   };
@@ -925,6 +947,7 @@ export function ConsumerShoppingList() {
       if (progress >= 1) {
         progress = 1;
         setChecklistOrderStatus({ status: 'delivered' });
+        setShowAutoFridgePrompt(true);
         clearInterval(interval);
       } else if (progress > 0.6) {
         setChecklistOrderStatus({ status: 'on_the_way' });
@@ -1367,7 +1390,7 @@ export function ConsumerShoppingList() {
               <span className="text-xs px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-extrabold">
                 {paymentMethod === 'card' ? '💳 Paid via Card' : '💵 Cash on Delivery'} (${(activeChecklistOrder.totalAmount || orderGrandTotal).toFixed(2)})
               </span>
-              <button onClick={() => setActiveChecklistOrder(null)} className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-xl hover:bg-white/10">✕ Dismiss</button>
+              <button onClick={handleDismissOrderTracking} className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-xl hover:bg-white/10 transition-all font-semibold cursor-pointer">✕ Dismiss & Close</button>
             </div>
           </div>
 
@@ -1585,38 +1608,92 @@ export function ConsumerShoppingList() {
         </div>
       )}
 
-      <form onSubmit={handleAddItem} className="glass p-3 rounded-2xl flex flex-col sm:flex-row items-center gap-2 border border-white/10">
-        <div className="relative w-full sm:flex-1">
-          <input type="text" placeholder="Add item (e.g. Fresh Tomatoes, Olive Oil)..." value={newItemName} onChange={(e) => setNewItemName(e.target.value)} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" required />
-          <button type="button" onClick={() => setShowVisualCatalog(true)} className="absolute right-2 top-2 text-[10px] bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 px-2 py-1 rounded-lg font-bold transition-all cursor-pointer" title="Pick product visually">🖼️ Visual Pick</button>
+      <form onSubmit={handleAddItem} className="glass p-4 rounded-2xl border border-white/10 space-y-3 shadow-xl">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-extrabold text-white flex items-center gap-1.5">
+            <span>➕</span> Add New Item to Checklist
+          </span>
+          <button type="button" onClick={() => setShowVisualCatalog(true)} className="text-[11px] bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 px-2.5 py-1 rounded-lg font-extrabold transition-all cursor-pointer shadow-sm flex items-center gap-1">
+            <span>🖼️</span> Visual Pick
+          </button>
         </div>
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-          <input type="number" step="any" min="1" placeholder="Qty" value={newItemQty} onChange={(e) => setNewItemQty(e.target.value)} className="input-dark w-20 px-3 py-2.5 text-xs rounded-xl" />
-          <select value={newItemUnit} onChange={(e) => setNewItemUnit(e.target.value)} className="input-dark w-24 px-2 py-2.5 text-xs rounded-xl cursor-pointer">
-            <option value="pcs">pcs 🍎</option>
-            <option value="kg">kg ⚖️</option>
-            <option value="g">g ⚖️</option>
-            <option value="Liter">Liter 🥛</option>
-            <option value="loaf">loaf 🍞</option>
-            <option value="dozen">dozen 🥚</option>
-            <option value="pack">pack 📦</option>
-            <option value="unit">unit 🛒</option>
+
+        <div className="relative w-full">
+          <input
+            type="text"
+            placeholder="Item name (e.g. Fresh Apples, Whole Wheat Bread)..."
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            className="input-dark w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl font-medium"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div className="flex gap-1 min-w-0">
+            <input
+              type="number"
+              step="any"
+              min="1"
+              placeholder="Qty"
+              value={newItemQty}
+              onChange={(e) => setNewItemQty(e.target.value)}
+              className="input-dark w-16 shrink-0 px-2.5 py-2 text-xs rounded-xl font-mono text-center"
+            />
+            <select
+              value={newItemUnit}
+              onChange={(e) => setNewItemUnit(e.target.value)}
+              className="input-dark flex-1 min-w-0 px-2 py-2 text-xs rounded-xl cursor-pointer font-medium"
+            >
+              <option value="pcs">pcs 🍎</option>
+              <option value="kg">kg ⚖️</option>
+              <option value="g">g ⚖️</option>
+              <option value="Liter">Liter 🥛</option>
+              <option value="loaf">loaf 🍞</option>
+              <option value="dozen">dozen 🥚</option>
+              <option value="pack">pack 📦</option>
+              <option value="unit">unit 🛒</option>
+            </select>
+          </div>
+
+          <select
+            value={newItemCategory}
+            onChange={(e) => setNewItemCategory(e.target.value)}
+            className="input-dark w-full px-2.5 py-2 text-xs rounded-xl cursor-pointer font-medium"
+          >
+            <option value="Produce">Produce 🍎</option>
+            <option value="Dairy">Dairy 🥛</option>
+            <option value="Bakery">Bakery 🍞</option>
+            <option value="Meat">Meat 🥩</option>
+            <option value="Pantry">Pantry 📦</option>
           </select>
+
+          <select
+            value={newItemPriority}
+            onChange={(e) => setNewItemPriority(e.target.value)}
+            className="input-dark w-full px-2.5 py-2 text-xs rounded-xl cursor-pointer font-medium"
+          >
+            <option value="normal">🟢 Normal</option>
+            <option value="medium">⭐ Medium</option>
+            <option value="high">🔥 High</option>
+          </select>
+
+          <input
+            type="number"
+            step="0.10"
+            placeholder="Est. $"
+            value={newItemPrice}
+            onChange={(e) => setNewItemPrice(e.target.value)}
+            className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
+          />
         </div>
-        <select value={newItemCategory} onChange={(e) => setNewItemCategory(e.target.value)} className="input-dark w-full sm:w-32 px-3 py-2.5 text-xs rounded-xl cursor-pointer">
-          <option value="Produce">Produce 🍎</option>
-          <option value="Dairy">Dairy 🥛</option>
-          <option value="Bakery">Bakery 🍞</option>
-          <option value="Meat">Meat 🥩</option>
-          <option value="Pantry">Pantry 📦</option>
-        </select>
-        <select value={newItemPriority} onChange={(e) => setNewItemPriority(e.target.value)} className="input-dark w-full sm:w-28 px-3 py-2.5 text-xs rounded-xl cursor-pointer">
-          <option value="normal">🟢 Normal</option>
-          <option value="medium">⭐ Medium</option>
-          <option value="high">🔥 High</option>
-        </select>
-        <input type="number" step="0.10" placeholder="Est. $" value={newItemPrice} onChange={(e) => setNewItemPrice(e.target.value)} className="input-dark w-full sm:w-24 px-3 py-2.5 text-xs rounded-xl" />
-        <button type="submit" className="btn-glow w-full sm:w-auto px-5 py-2.5 rounded-xl text-white text-xs font-extrabold shrink-0 cursor-pointer">+ Add Item</button>
+
+        <button
+          type="submit"
+          className="btn-glow w-full py-3 rounded-xl text-white text-xs font-black tracking-wide flex items-center justify-center gap-1.5 cursor-pointer shadow-glow transition-all active:scale-95"
+        >
+          <span>➕</span> Add to Shopping Checklist
+        </button>
       </form>
 
       <div className="glass p-3.5 rounded-2xl space-y-3 border border-white/10">
@@ -1647,45 +1724,120 @@ export function ConsumerShoppingList() {
             const isHighPriority = item.priority === 'high';
             const estTotal = ((item.estimatedPrice || 2.50) * (item.quantityNum || 1)).toFixed(2);
             return (
-              <div key={item.id} onClick={() => toggleItem(item.id)} className={`w-full flex items-center justify-between gap-4 p-4 rounded-xl transition-all cursor-pointer border ${item.checked ? 'bg-white/[0.02] border-white/5 opacity-60' : isHighPriority ? 'bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/30' : 'bg-white/5 hover:bg-white/10 border-white/10'}`}>
-                <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className={`h-5 w-5 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all ${item.checked ? 'bg-brand-500 border-brand-500 text-slate-950' : 'border-slate-600'}`}>{item.checked && <span className="font-bold text-xs">✓</span>}</div>
-                  <span className="text-2xl shrink-0">{item.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className={`font-bold text-sm truncate ${item.checked ? 'line-through text-slate-500' : 'text-white'}`}>{item.name}</p>
+              <div
+                key={item.id}
+                onClick={() => toggleItem(item.id)}
+                className={`w-full p-3.5 sm:p-4 rounded-2xl transition-all cursor-pointer border ${
+                  item.checked
+                    ? 'bg-slate-900/40 border-white/5 opacity-60'
+                    : isHighPriority
+                    ? 'bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/30'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10'
+                }`}
+              >
+                {/* Mobile: 2-Row Stack / Desktop: Single Inline Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  {/* Row 1: Checkbox, Emoji, Item Name, Category Tag & Price */}
+                  <div className="flex items-center justify-between gap-2 min-w-0 w-full sm:w-auto flex-1">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className={`h-6 w-6 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${
+                          item.checked ? 'bg-emerald-500 border-emerald-500 text-slate-950 shadow-glow' : 'border-slate-500 hover:border-emerald-400'
+                        }`}
+                      >
+                        {item.checked && <span className="font-black text-xs">✓</span>}
+                      </div>
+
+                      <span className="text-2xl sm:text-3xl shrink-0">{item.emoji || '🛒'}</span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`font-extrabold text-sm sm:text-base leading-tight truncate ${item.checked ? 'line-through text-slate-500' : 'text-white'}`}>
+                            {item.name}
+                          </p>
+                          {isHighPriority && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 font-bold uppercase">
+                              🔥 Urgent
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-medium sm:hidden">
+                          {item.category || 'Produce'}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-400 font-mono mt-1 flex-wrap">
-                      <select value={item.unit || 'pcs'} onChange={(e) => changeItemUnit(item.id, e.target.value, e)} onClick={(e) => e.stopPropagation()} className="bg-brand-500/20 text-brand-300 font-bold text-xs rounded-lg px-2 py-0.5 border border-brand-500/40 hover:border-brand-500/70 cursor-pointer transition-all shrink-0">
-                        <option value="pcs">pcs 🍎</option>
-                        <option value="kg">kg ⚖️</option>
-                        <option value="g">g ⚖️</option>
-                        <option value="L">L 🥛</option>
-                        <option value="ml">ml 🧪</option>
-                        <option value="dozen">dozen 🥚</option>
-                        <option value="pack">pack 📦</option>
-                        <option value="loaf">loaf 🍞</option>
-                        <option value="unit">unit 🛒</option>
-                      </select>
-                      <span>·</span>
-                      <span className="text-slate-300 font-semibold">{item.qty}</span>
-                      <span>·</span>
-                      <span className="text-brand-300">{item.category}</span>
-                      <span>·</span>
-                      <span className="text-emerald-400 font-bold">${estTotal}</span>
+
+                    {/* Mobile Right: Total Price */}
+                    <div className="text-right shrink-0">
+                      <span className="text-xs font-black text-emerald-400 font-mono">
+                        ${estTotal}
+                      </span>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/10" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" onClick={(e) => adjustItemQuantity(item.id, -1, e)} className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-white/20 hover:text-white transition-all cursor-pointer">-</button>
-                    <span className="px-2 text-xs font-bold font-mono text-white min-w-[20px] text-center">{item.quantityNum || 1}</span>
-                    <button type="button" onClick={(e) => adjustItemQuantity(item.id, 1, e)} className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-white/20 hover:text-white transition-all cursor-pointer">+</button>
+
+                  {/* Row 2: Unit Select Dropdown, Stepper (- 1 +), Priority Flag & Delete Button */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5 shrink-0">
+                    {/* Unit Selector Dropdown */}
+                    <select
+                      value={item.unit || 'pcs'}
+                      onChange={(e) => changeItemUnit(item.id, e.target.value, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="bg-emerald-500/15 text-emerald-300 font-bold text-xs rounded-xl px-2.5 py-1.5 border border-emerald-500/40 hover:border-emerald-500/70 cursor-pointer transition-all shrink-0 max-w-[105px]"
+                    >
+                      <option value="pcs">pcs 🍎</option>
+                      <option value="kg">kg ⚖️</option>
+                      <option value="g">g ⚖️</option>
+                      <option value="L">L 🥛</option>
+                      <option value="ml">ml 🧪</option>
+                      <option value="dozen">dozen 🥚</option>
+                      <option value="pack">pack 📦</option>
+                      <option value="loaf">loaf 🍞</option>
+                      <option value="unit">unit 🛒</option>
+                    </select>
+
+                    <div className="flex items-center gap-2">
+                      {/* Quantity Stepper (- 1 +) */}
+                      <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/10" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => adjustItemQuantity(item.id, -1, e)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-white/20 hover:text-white transition-all cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="px-2 text-xs font-black font-mono text-white min-w-[20px] text-center">
+                          {item.quantityNum || 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => adjustItemQuantity(item.id, 1, e)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-slate-300 hover:bg-white/20 hover:text-white transition-all cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Priority Flag */}
+                      <button
+                        type="button"
+                        onClick={(e) => cyclePriority(item.id, e)}
+                        className="p-1.5 text-xs rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-amber-300 transition-all cursor-pointer"
+                        title="Change Priority"
+                      >
+                        {item.priority === 'high' ? '🔥' : item.priority === 'medium' ? '⭐' : '🟢'}
+                      </button>
+
+                      {/* Trash Delete Icon */}
+                      <button
+                        type="button"
+                        onClick={(e) => removeItem(item.id, e)}
+                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer"
+                        title="Remove Item"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
-                  <button type="button" onClick={(e) => cyclePriority(item.id, e)} className="p-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-amber-300 transition-all cursor-pointer">
-                    {item.priority === 'high' ? '🔥' : item.priority === 'medium' ? '⭐' : '🟢'}
-                  </button>
-                  <button type="button" onClick={(e) => removeItem(item.id, e)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all cursor-pointer">🗑️</button>
                 </div>
               </div>
             );
@@ -1760,7 +1912,7 @@ export function ConsumerShoppingList() {
                 <span className="text-[11px] text-cyan-300 font-normal">👇 Tap map to mark exact house pin</span>
               </span>
               <div className="rounded-xl overflow-hidden border border-white/15 h-56 w-full relative">
-                <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }} tap={false}>
                   <FlyToLocation center={[userLat, userLng]} />
                   <MapEventsHandler onLocationSelect={handleMapPinClick} />
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
@@ -2100,6 +2252,73 @@ export function ConsumerShoppingList() {
             >
               🖨️ Print / Save Receipt
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Delivery Auto-Add to Fridge / Cancel Modal */}
+      {showAutoFridgePrompt && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-up">
+          <div className="glass max-w-md w-full p-6 rounded-3xl border border-emerald-500/40 bg-slate-900 shadow-2xl space-y-5 relative text-center overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-3xl mx-auto shadow-glow">
+              🎉
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-extrabold text-white">Order Delivered Successfully!</h3>
+              <p className="text-xs text-slate-300">
+                Order <span className="font-mono text-cyan-300 font-bold">#{activeChecklistOrder?._id || '323809'}</span> from{' '}
+                <strong className="text-emerald-300">{activeSelectedShop?.shopName || 'Tellippalai Supermarket'}</strong> has arrived.
+              </p>
+            </div>
+
+            <div className="glass p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 space-y-2 text-left">
+              <div className="text-xs font-extrabold text-emerald-300 flex items-center gap-1.5">
+                <span>🧊</span> Auto-Add Delivered Items to Fridge Inventory?
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Seamlessly transfer your purchased items to your Fridge Inventory for automated expiration alerts, freshness tracking, and AI recipe ideas.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleTransferToFridge();
+                  setShowAutoFridgePrompt(false);
+                  handleDismissOrderTracking();
+                  setShowReviewModal(true);
+                }}
+                disabled={transferring}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs shadow-glow transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {transferring ? (
+                  <>
+                    <span className="w-3.5 h-3.5 rounded-full bg-slate-950 animate-ping" />
+                    Adding to Fridge...
+                  </>
+                ) : (
+                  <>
+                    <span>📥</span> Add to Fridge & Leave Review
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAutoFridgePrompt(false);
+                  handleDismissOrderTracking();
+                  setShowReviewModal(true);
+                }}
+                className="w-full sm:w-auto px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-white font-bold text-xs transition-all cursor-pointer"
+              >
+                ✕ Cancel / Skip
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2784,7 +3003,7 @@ export function ConsumerSettings() {
             </div>
 
             <div className="rounded-2xl overflow-hidden border border-white/15 shadow-2xl relative" style={{ height: 280 }}>
-              <MapContainer center={pinPos} zoom={13} style={{ height: '100%', width: '100%' }}>
+              <MapContainer center={pinPos} zoom={13} style={{ height: '100%', width: '100%' }} tap={false}>
                 <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <FlyToLocation center={pinPos} />
                 <MapEventsHandler onLocationSelect={(lat, lng) => setPinPos([lat, lng])} />
@@ -2941,5 +3160,8 @@ export function ConsumerSettings() {
     </div>
   );
 }
+
+export { default as ConsumerChatbot } from './widgets/ConsumerChatbot';
+
 
 

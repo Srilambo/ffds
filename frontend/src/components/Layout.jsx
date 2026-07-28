@@ -143,6 +143,7 @@ function Layout() {
         return [
           { to: '/home',                   label: t('nav.scan', 'Scan'), icon: '🔍' },
           { to: '/consumer/pantry',        label: 'My Fridge', icon: '🧊' },
+          { to: '/consumer/chatbot',       label: 'AI Assistant', icon: '🤖' },
           { to: '/consumer/history',       label: t('nav.consumer.history', 'History'), icon: '📜' },
           { to: '/consumer/recipes',       label: t('nav.consumer.recipes', 'Recipes'), icon: '🍳' },
           { to: '/consumer/shopping-list', label: t('nav.consumer.shoppingList', 'Shopping List'), icon: '📋' },
@@ -169,6 +170,7 @@ function Layout() {
   ];
 
   const consumerMoreLinks = [
+    { to: '/consumer/chatbot', label: 'AI Assistant', icon: '🤖' },
     { to: '/consumer/history', label: t('nav.consumer.history', 'History'), icon: '📜' },
     { to: '/consumer/settings', label: t('nav.consumer.settings', 'Profile & Settings'), icon: '👤' },
   ];
