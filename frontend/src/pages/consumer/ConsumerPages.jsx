@@ -35,17 +35,26 @@ const userIcon = userPinIcon;
 
 function FlyToLocation({ center }) {
   const map = useMap();
-  useEffect(() => { if (center) map.flyTo(center, 14, { duration: 1.2 }); }, [center]);
+  useEffect(() => {
+    if (center && Array.isArray(center) && center.length === 2 && center[0] && center[1]) {
+      map.setView(center, 14);
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 250);
+    }
+  }, [center, map]);
   return null;
 }
 
-function MapPinPicker({ position, onPick }) {
+function MapEventsHandler({ onLocationSelect }) {
   useMapEvents({
     click(e) {
-      if (onPick) onPick([e.latlng.lat, e.latlng.lng]);
+      if (onLocationSelect) {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      }
     },
   });
-  return position ? <Marker position={position} icon={userIcon} /> : null;
+  return null;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -229,9 +238,9 @@ export function ConsumerPantry() {
             else if (daysLeft <= 2) status = 'expiring';
 
             const statusStyles = {
-              fresh:    { border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', badge: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', label: 'Fresh' },
-              expiring: { border: 'border-amber-500/30',   bg: 'bg-amber-500/5',   badge: 'text-amber-400 bg-amber-500/10 border-amber-500/20',   label: 'Expiring Soon' },
-              spoiled:  { border: 'border-red-500/30',     bg: 'bg-red-500/5',     badge: 'text-red-400 bg-red-500/10 border-red-500/20',         label: 'Expired' },
+              fresh: { border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', badge: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', label: 'Fresh' },
+              expiring: { border: 'border-amber-500/30', bg: 'bg-amber-500/5', badge: 'text-amber-400 bg-amber-500/10 border-amber-500/20', label: 'Expiring Soon' },
+              spoiled: { border: 'border-red-500/30', bg: 'bg-red-500/5', badge: 'text-red-400 bg-red-500/10 border-red-500/20', label: 'Expired' },
             };
             const s = statusStyles[status];
             return (
@@ -457,77 +466,77 @@ const POPULAR_QUICK_SUGGESTIONS = [
   { name: 'Onions', category: 'Produce', emoji: '🧅', qty: '1 kg', estPrice: 1.20 },
 ];
 
-export function generate5ProximityStores(lat = 9.7831, lng = 80.0255) {
+export function generate5ProximityStores(lat = 9.7833, lng = 80.0167) {
   return [
     {
-      _id: 'shop-1',
-      shopName: 'Fresh Mart Supermarket',
-      address: '142 Main Street, City Center',
+      _id: 'shop-tellippalai-1',
+      shopName: 'Tellippalai Fresh Supermarket',
+      address: '142 Kankesanthurai Road, Tellippalai, Jaffna',
       distanceKm: 0.6,
       deliveryTimeMinutes: '10–15 min',
       rating: 4.9,
       reviewsCount: 184,
       isVerified: true,
       deliveryFee: 1.50,
-      coords: [lat + 0.004, lng + 0.005],
-      hours: '7am – 10pm',
+      coords: [lat + 0.003, lng + 0.004],
+      hours: '6:30am – 10:00pm',
     },
     {
-      _id: 'shop-2',
-      shopName: 'Green Organic Pantry',
-      address: '88 Station Road, Proximity Mall',
+      _id: 'shop-chunnakam-2',
+      shopName: 'Chunnakam Organic Pantry',
+      address: '88 Station Road, Chunnakam, Jaffna',
       distanceKm: 1.2,
       deliveryTimeMinutes: '15–20 min',
       rating: 4.8,
       reviewsCount: 142,
       isVerified: true,
       deliveryFee: 2.00,
-      coords: [lat - 0.006, lng + 0.004],
-      hours: '8am – 9pm',
+      coords: [lat - 0.005, lng + 0.003],
+      hours: '7:00am – 9:30pm',
     },
     {
-      _id: 'shop-3',
-      shopName: 'City Express Grocery',
-      address: '25 Commercial Avenue',
+      _id: 'shop-jaffna-3',
+      shopName: 'Jaffna City Express Grocery',
+      address: '25 Hospital Road, Jaffna Town',
       distanceKm: 2.1,
       deliveryTimeMinutes: '18–25 min',
       rating: 4.7,
       reviewsCount: 96,
       isVerified: true,
       deliveryFee: 0.00,
-      coords: [lat + 0.008, lng - 0.007],
+      coords: [lat + 0.007, lng - 0.006],
       hours: '24/7 Open',
     },
     {
-      _id: 'shop-4',
-      shopName: 'Sunland Fresh Produce Market',
-      address: '310 Kynsey Road, Central Market',
+      _id: 'shop-kokkuvil-4',
+      shopName: 'Kokkuvil Green Farmers Market',
+      address: '12 Palaly Road, Kokkuvil, Jaffna',
       distanceKm: 3.5,
       deliveryTimeMinutes: '20–30 min',
       rating: 4.9,
       reviewsCount: 215,
       isVerified: true,
       deliveryFee: 2.50,
-      coords: [lat - 0.009, lng - 0.008],
-      hours: '7am – 9:30pm',
+      coords: [lat - 0.008, lng - 0.007],
+      hours: '7:00am – 9:00pm',
     },
     {
-      _id: 'shop-5',
-      shopName: 'QuickPick Express Super',
-      address: '12 Hospital Road, North District',
+      _id: 'shop-kondavil-5',
+      shopName: 'Kondavil QuickPick Super',
+      address: '45 Point Pedro Road, Kondavil, Jaffna',
       distanceKm: 4.8,
       deliveryTimeMinutes: '25–35 min',
       rating: 4.6,
       reviewsCount: 78,
       isVerified: true,
       deliveryFee: 1.80,
-      coords: [lat + 0.012, lng + 0.011],
-      hours: '8am – 11pm',
+      coords: [lat + 0.010, lng + 0.009],
+      hours: '7:00am – 9:30pm',
     },
   ];
 }
 
-const FALLBACK_5_NEARBY_SHOPS = generate5ProximityStores(9.7831, 80.0255);
+const FALLBACK_5_NEARBY_SHOPS = generate5ProximityStores(9.7833, 80.0167);
 
 const VISUAL_PRODUCT_CATALOG = [
   { name: 'Red Apples', category: 'Produce', emoji: '🍎', defaultUnit: 'kg', estPrice: 3.50, subcat: 'Fruit' },
@@ -701,23 +710,205 @@ export function ConsumerShoppingList() {
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cardForm, setCardForm] = useState({ number: '', expiry: '', cvv: '' });
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [activeChecklistOrder, setActiveChecklistOrder] = useState(null);
-  const [checklistOrderStatus, setChecklistOrderStatus] = useState(null);
-  const [deliveryRiderPos, setDeliveryRiderPos] = useState(null);
+  const [activeChecklistOrder, setActiveChecklistOrder] = useState({
+    _id: 'INV-323809',
+    shopName: 'super fast',
+    totalAmount: 56.60,
+    paymentMethod: 'cash',
+    itemsCount: 5,
+    deliveryOtp: '7413',
+  });
+  const [checklistOrderStatus, setChecklistOrderStatus] = useState({ status: 'delivered' });
+  const [deliveryRiderPos, setDeliveryRiderPos] = useState([9.7845, 80.0270]);
   const [showBillHistoryModal, setShowBillHistoryModal] = useState(false);
   const [viewReceipt, setViewReceipt] = useState(null);
+
+  // Review & Rating State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [riderRating, setRiderRating] = useState(5);
+  const [storeRating, setStoreRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [selectedReviewTags, setSelectedReviewTags] = useState(['⚡ Fast 10-Min Delivery', '🍎 Super Fresh Produce']);
+  const [submittedReview, setSubmittedReview] = useState(null);
+
+  const [userCustomLocation, setUserCustomLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ffds_user_custom_location');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [trackingGps, setTrackingGps] = useState(false);
+  const [selectedPostalLocation, setSelectedPostalLocation] = useState({
+    code: '40130',
+    name: 'Tellipalai / Tellippalai',
+    district: 'Jaffna',
+    coords: [9.7833, 80.0167],
+  });
+  const DEFAULT_DEMO_BILLS = [
+    {
+      id: 'INV-323809',
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      shopName: 'super fast',
+      shopAddress: 'Jaffna Main Road, Tellipalai',
+      items: [
+        { name: 'Fresh Milk (1 Liter)', qty: '2 Liter', price: 5.00, emoji: '🥛' },
+        { name: 'Whole Wheat Bread', qty: '1 loaf', price: 3.20, emoji: '🍞' },
+        { name: 'Fresh Farm Eggs', qty: '1 dozen', price: 4.50, emoji: '🥚' },
+        { name: 'Red Apples', qty: '2 kg', price: 8.40, emoji: '🍎' },
+        { name: 'Fresh Bananas', qty: '1.5 kg', price: 4.50, emoji: '🍌' },
+        { name: 'Avocado', qty: '4 pcs', price: 10.00, emoji: '🥑' },
+        { name: 'Fresh Tomatoes', qty: '2 kg', price: 6.00, emoji: '🍅' },
+      ],
+      subtotal: 54.60,
+      deliveryFee: 1.50,
+      ecoFee: 0.50,
+      grandTotal: 56.60,
+      paymentMethod: 'cash',
+      deliveryOtp: '7413',
+      status: 'Delivered 🎉',
+      review: {
+        riderRating: 5,
+        storeRating: 5,
+        reviewText: 'Super fast delivery in 10 mins! Produce was fresh.',
+        tags: ['⚡ Fast 10-Min Delivery', '🍎 Super Fresh Produce'],
+      }
+    },
+    {
+      id: 'INV-321045',
+      date: 'Jul 26, 2026, 04:15 PM',
+      shopName: 'Jaffna Fresh Produce',
+      shopAddress: 'Kankesanthurai Road, Jaffna',
+      items: [
+        { name: 'Fresh Mangoes', qty: '3 kg', price: 15.00, emoji: '🥭' },
+        { name: 'Organic Carrots', qty: '2 kg', price: 6.20, emoji: '🥕' },
+        { name: 'Red Tomatoes', qty: '2 kg', price: 5.50, emoji: '🍅' },
+        { name: 'Green Cucumber', qty: '1.5 kg', price: 4.00, emoji: '🥒' },
+      ],
+      subtotal: 30.70,
+      deliveryFee: 3.00,
+      ecoFee: 0.50,
+      grandTotal: 34.20,
+      paymentMethod: 'card',
+      deliveryOtp: '9182',
+      status: 'Delivered 🎉',
+    },
+    {
+      id: 'INV-319802',
+      date: 'Jul 22, 2026, 11:30 AM',
+      shopName: 'City Supermarket',
+      shopAddress: 'Station Road, Jaffna',
+      items: [
+        { name: 'Unsalted Butter', qty: '2 packs', price: 9.00, emoji: '🧈' },
+        { name: 'Cheddar Cheese Block', qty: '500g', price: 8.50, emoji: '🧀' },
+        { name: 'Boneless Chicken Breast', qty: '1.5 kg', price: 18.00, emoji: '🍗' },
+        { name: 'Basmati Rice', qty: '5 kg', price: 6.80, emoji: '🌾' },
+      ],
+      subtotal: 42.30,
+      deliveryFee: 0.00,
+      ecoFee: 0.50,
+      grandTotal: 42.80,
+      paymentMethod: 'card',
+      deliveryOtp: '3341',
+      status: 'Completed 🎉',
+    }
+  ];
+
   const [billHistory, setBillHistory] = useState(() => {
     try {
       const saved = localStorage.getItem('ffds_bill_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return DEFAULT_DEMO_BILLS;
   });
 
+  const handleSubmitReview = (e) => {
+    e.preventDefault();
+    const reviewData = {
+      orderId: activeChecklistOrder?._id || 'INV-323809',
+      riderName: 'Nimal Perera (#402)',
+      riderRating,
+      storeRating,
+      reviewText: reviewText.trim() || 'Great delivery service and super fresh produce!',
+      tags: selectedReviewTags,
+      createdAt: new Date().toISOString(),
+    };
+    setSubmittedReview(reviewData);
+
+    // Save to billHistory
+    setBillHistory(prev => prev.map(bill => {
+      if (bill.id === activeChecklistOrder?._id) {
+        return { ...bill, review: reviewData };
+      }
+      return bill;
+    }));
+
+    try {
+      localStorage.setItem('ffds_last_review', JSON.stringify(reviewData));
+    } catch { }
+
+    setShowReviewModal(false);
+    setSyncMsg('⭐ Thank you! Your delivery & produce review has been submitted successfully.');
+    setTimeout(() => setSyncMsg(''), 5000);
+  };
+
   useEffect(() => {
-    try { localStorage.setItem('ffds_shopping_checklist', JSON.stringify(items)); } catch {}
+    try { localStorage.setItem('ffds_shopping_checklist', JSON.stringify(items)); } catch { }
   }, [items]);
+
+  useEffect(() => {
+    if (user?.cardDetails) {
+      const num = user.cardDetails.cardNumberMasked || '';
+      const exp = user.cardDetails.expiryDate || '';
+      setCardForm((prev) => ({
+        ...prev,
+        number: prev.number || num,
+        expiry: prev.expiry || exp,
+      }));
+    }
+  }, [user]);
+
+  const handleModalCardNumberChange = (e) => {
+    const rawVal = e.target.value;
+    const digitsOnly = rawVal.replace(/\D/g, '').slice(0, 16);
+    const formatted = digitsOnly.match(/.{1,4}/g)?.join(' ') || digitsOnly;
+    setCardForm((prev) => ({ ...prev, number: formatted }));
+  };
+
+  const handleModalCardExpiryChange = (e) => {
+    let raw = e.target.value.replace(/\D/g, '');
+    if (raw.length > 4) raw = raw.slice(0, 4);
+
+    let formatted = '';
+    if (raw.length > 0) {
+      let m = raw.slice(0, 2);
+      if (raw.length === 1 && parseInt(raw[0], 10) > 1) {
+        m = '0' + raw[0];
+        raw = m;
+      } else if (m.length === 2) {
+        const monthNum = parseInt(m, 10);
+        if (monthNum < 1) m = '01';
+        if (monthNum > 12) m = '12';
+      }
+      formatted = m;
+      if (raw.length > 2) {
+        formatted += '/' + raw.slice(2, 4);
+      } else if (raw.length === 2 && e.nativeEvent.inputType !== 'deleteContentBackward') {
+        formatted += '/';
+      }
+    }
+    setCardForm((prev) => ({ ...prev, expiry: formatted }));
+  };
+
+  useEffect(() => {
+    const lat = userCustomLocation?.lat || selectedPostalLocation?.coords?.[0] || 9.7833;
+    const lng = userCustomLocation?.lng || selectedPostalLocation?.coords?.[1] || 80.0167;
+    fetchBackendShops(lat, lng);
+  }, [selectedPostalLocation, userCustomLocation]);
 
   useEffect(() => {
     if (!activeChecklistOrder) return;
@@ -930,31 +1121,89 @@ export function ConsumerShoppingList() {
     }
   };
 
-  const handleOpenOnlineShoppingModal = async () => {
-    setShowOrderModal(true);
+  const fetchBackendShops = async (lat, lng) => {
     setLoadingShops(true);
-    const uLat = user?.location?.coordinates?.[1] || 9.7831;
-    const uLng = user?.location?.coordinates?.[0] || 80.0255;
-    const generated5 = generate5ProximityStores(uLat, uLng);
-
+    const generated5 = generate5ProximityStores(lat, lng);
     try {
-      const { data } = await api.get('/shops/nearby', { params: { lat: uLat, lng: uLng, radius: 15000 } });
-      const merged = Array.isArray(data) && data.length > 0 ? data : [];
+      const { data } = await api.get('/shops/nearby', { params: { lat, lng, radius: 50000 } });
+      const merged = Array.isArray(data) && data.length > 0 ? data.map((s) => {
+        const sLat = s.location?.coordinates?.[1] || s.coords?.[0] || lat;
+        const sLng = s.location?.coordinates?.[0] || s.coords?.[1] || lng;
+        const dist = (Math.sqrt(Math.pow(sLat - lat, 2) + Math.pow(sLng - lng, 2)) * 111).toFixed(1);
+        return {
+          ...s,
+          distanceKm: dist,
+          coords: [sLat, sLng],
+          deliveryTimeMinutes: s.deliveryTimeMinutes || '10–20 min',
+          deliveryFee: s.deliveryFee !== undefined ? s.deliveryFee : 1.50,
+        };
+      }) : [];
+
       const combined = [...merged];
       generated5.forEach((fb) => {
-        if (combined.length < 5 && !combined.some((s) => s.shopName === fb.shopName)) {
-          combined.push(fb);
+        if (!combined.some((s) => s.shopName === fb.shopName)) {
+          const fDist = (Math.sqrt(Math.pow(fb.coords[0] - lat, 2) + Math.pow(fb.coords[1] - lng, 2)) * 111).toFixed(1);
+          combined.push({ ...fb, distanceKm: fDist });
         }
       });
-      const top5 = combined.slice(0, 5);
-      setNearbyShops(top5);
-      if (top5.length > 0) setSelectedShop(top5[0]);
+
+      combined.sort((a, b) => parseFloat(a.distanceKm || 0) - parseFloat(b.distanceKm || 0));
+      setNearbyShops(combined);
+      if (combined.length > 0) setSelectedShop(combined[0]);
     } catch {
       setNearbyShops(generated5);
       setSelectedShop(generated5[0]);
     } finally {
       setLoadingShops(false);
     }
+  };
+
+  const handleEnableLiveGpsLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setTrackingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setUserCustomLocation({ lat: latitude, lng: longitude });
+        setSyncMsg(`📍 Live GPS Pinpoint Active! Coordinates: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        setTimeout(() => setSyncMsg(''), 5000);
+        setTrackingGps(false);
+        fetchBackendShops(latitude, longitude);
+      },
+      (err) => {
+        setTrackingGps(false);
+        alert(`GPS location query: ${err.message}. Displaying proximity stores for current area.`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleMapPinClick = (lat, lng) => {
+    const loc = { lat, lng };
+    setUserCustomLocation(loc);
+    try { localStorage.setItem('ffds_user_custom_location', JSON.stringify(loc)); } catch { }
+    setSyncMsg(`📍 Home Delivery Location Pin Saved! (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    setTimeout(() => setSyncMsg(''), 5000);
+    fetchBackendShops(lat, lng);
+  };
+
+  const handleSelectPostalCity = (cityObj) => {
+    setSelectedPostalLocation(cityObj);
+    setUserCustomLocation(null);
+    try { localStorage.removeItem('ffds_user_custom_location'); } catch { }
+    setSyncMsg(`📍 Location switched to ${cityObj.name}, ${cityObj.district} (${cityObj.code})`);
+    setTimeout(() => setSyncMsg(''), 4000);
+    fetchBackendShops(cityObj.coords[0], cityObj.coords[1]);
+  };
+
+  const handleOpenOnlineShoppingModal = async () => {
+    setShowOrderModal(true);
+    const uLat = userCustomLocation?.lat || selectedPostalLocation?.coords?.[0] || 9.7833;
+    const uLng = userCustomLocation?.lng || selectedPostalLocation?.coords?.[1] || 80.0167;
+    fetchBackendShops(uLat, uLng);
   };
 
   const handleSubmitChecklistOrder = async () => {
@@ -993,7 +1242,7 @@ export function ConsumerShoppingList() {
 
       const updatedHistory = [newBill, ...billHistory];
       setBillHistory(updatedHistory);
-      try { localStorage.setItem('ffds_bill_history', JSON.stringify(updatedHistory)); } catch {}
+      try { localStorage.setItem('ffds_bill_history', JSON.stringify(updatedHistory)); } catch { }
 
       setActiveChecklistOrder({
         _id: newBill.id,
@@ -1051,11 +1300,22 @@ export function ConsumerShoppingList() {
   const orderDeliveryFee = orderSubtotal > 20 ? 0.00 : (selectedShop?.deliveryFee || 1.50);
   const orderEcoFee = 0.50;
   const orderGrandTotal = orderSubtotal + orderDeliveryFee + orderEcoFee;
-  const userLat = user?.location?.coordinates?.[1] || 9.7831;
-  const userLng = user?.location?.coordinates?.[0] || 80.0255;
 
-  const currentStoresList = nearbyShops.length > 0 ? nearbyShops : generate5ProximityStores(userLat, userLng);
-  const activeSelectedShop = selectedShop || currentStoresList[0];
+  const userLat = userCustomLocation?.lat || selectedPostalLocation?.coords?.[0] || 9.7833;
+  const userLng = userCustomLocation?.lng || selectedPostalLocation?.coords?.[1] || 80.0167;
+
+  const allStoresList = nearbyShops.length > 0 ? nearbyShops : generate5ProximityStores(userLat, userLng);
+  const currentStoresList = allStoresList
+    .map((s) => {
+      const sLat = s.coords?.[0] || s.location?.coordinates?.[1] || userLat;
+      const sLng = s.coords?.[1] || s.location?.coordinates?.[0] || userLng;
+      const dist = (Math.sqrt(Math.pow(sLat - userLat, 2) + Math.pow(sLng - userLng, 2)) * 111).toFixed(1);
+      return { ...s, distanceKm: dist, coords: [sLat, sLng] };
+    })
+    .filter((s) => parseFloat(s.distanceKm) <= 35)
+    .sort((a, b) => parseFloat(a.distanceKm) - parseFloat(b.distanceKm));
+
+  const activeSelectedShop = selectedShop || currentStoresList[0] || allStoresList[0];
 
   return (
     <div className="space-y-6 fade-up">
@@ -1158,13 +1418,83 @@ export function ConsumerShoppingList() {
                 <p className="text-[11px] text-slate-400">Vehicle: E-Bike 🏍️ · Speed: 24 km/h</p>
               </div>
             </div>
-            <button
-              onClick={() => alert('📞 Calling Delivery Rider Nimal Perera (+94 77 123 4567)...')}
-              className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold flex items-center gap-2 cursor-pointer shadow-glow"
-            >
-              📞 Call Rider (+94 77 123 4567)
-            </button>
+            <div className="flex items-center gap-2">
+              {checklistOrderStatus.status === 'delivered' && (
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(true)}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold flex items-center gap-1.5 cursor-pointer shadow-glow transition-all"
+                >
+                  <span>⭐</span> {submittedReview ? 'View / Edit Review' : 'Rate & Review Order'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => alert('📞 Calling Delivery Rider Nimal Perera (+94 77 123 4567)...')}
+                className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold flex items-center gap-2 cursor-pointer shadow-glow"
+              >
+                📞 Call Rider (+94 77 123 4567)
+              </button>
+            </div>
           </div>
+
+          {/* Delivered Order Review Banner */}
+          {checklistOrderStatus.status === 'delivered' && (
+            <div className="pt-2 animate-fade-up">
+              {!submittedReview ? (
+                <div className="glass p-4 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-xl font-bold">
+                      ⭐
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">Order Delivered! Please Leave a Review</h4>
+                      <p className="text-xs text-slate-300">How was rider delivery speed & produce freshness quality?</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowReviewModal(true)}
+                    className="btn-glow px-5 py-2.5 rounded-xl text-white text-xs font-extrabold flex items-center gap-2 cursor-pointer shrink-0 shadow-glow"
+                  >
+                    <span>⭐</span> Rate Rider & Products
+                  </button>
+                </div>
+              ) : (
+                <div className="glass p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-emerald-300 flex items-center gap-1.5">
+                      <span>✨</span> Your Order Review & Rating
+                    </span>
+                    <button
+                      onClick={() => setShowReviewModal(true)}
+                      className="text-[11px] text-amber-400 hover:underline font-bold"
+                    >
+                      ✏️ Edit Review
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4 text-xs font-bold">
+                    <span className="text-white">
+                      Rider: <strong className="text-amber-400">{'★'.repeat(submittedReview.riderRating)}{'☆'.repeat(5 - submittedReview.riderRating)}</strong>
+                    </span>
+                    <span className="text-white">
+                      Freshness: <strong className="text-emerald-400">{'★'.repeat(submittedReview.storeRating)}{'☆'.repeat(5 - submittedReview.storeRating)}</strong>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 italic bg-white/5 p-2.5 rounded-lg border border-white/10">
+                    "{submittedReview.reviewText}"
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {submittedReview.tags.map((tag, idx) => (
+                      <span key={idx} className="text-[10px] px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -1395,15 +1725,50 @@ export function ConsumerShoppingList() {
               <button onClick={() => setShowOrderModal(false)} className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 text-sm">✕</button>
             </div>
 
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/90 p-3 rounded-xl border border-brand-500/40">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-brand-300 font-extrabold flex items-center gap-1">📍 Delivery Region:</span>
+                <span className="text-white font-bold">{selectedPostalLocation.name} ({selectedPostalLocation.district})</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedPostalLocation.code}
+                  onChange={(e) => {
+                    const match = SRI_LANKA_POSTAL_CODES.find((p) => p.code === e.target.value);
+                    if (match) handleSelectPostalCity(match);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-brand-500/50 text-brand-300 font-bold text-xs cursor-pointer shadow-glow"
+                >
+                  <option value="40130">📍 Jaffna - Tellippalai (40130)</option>
+                  <option value="40075">📍 Jaffna - Chunnakam (40075)</option>
+                  <option value="40000">📍 Jaffna - Main Town (40000)</option>
+                  <option value="40060">📍 Jaffna - Kokkuvil (40060)</option>
+                  <option value="40062">📍 Jaffna - Kondavil (40062)</option>
+                  <option value="40200">📍 Jaffna - Manipay (40200)</option>
+                  <option value="40600">📍 Jaffna - Point Pedro (40600)</option>
+                  <option value="43000">📍 Kilinochchi Town (43000)</option>
+                  <option value="00100">📍 Colombo Main City (00100)</option>
+                </select>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📍</span> 5 Nearby Proximity Stores Surrounding Your GPS Pin
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>📍</span> Proximity Stores Surrounding {selectedPostalLocation.name} ({currentStoresList.length} Stores)
+                </span>
+                <span className="text-[11px] text-cyan-300 font-normal">👇 Tap map to mark exact house pin</span>
               </span>
-              <div className="rounded-xl overflow-hidden border border-white/15 h-52 w-full relative">
+              <div className="rounded-xl overflow-hidden border border-white/15 h-56 w-full relative">
                 <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                  <FlyToLocation center={[userLat, userLng]} />
+                  <MapEventsHandler onLocationSelect={handleMapPinClick} />
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                   <Marker position={[userLat, userLng]} icon={userPinIcon}>
-                    <Popup><strong>📍 Your Delivery Location</strong></Popup>
+                    <Popup>
+                      <strong>📍 Your Marked Home Location</strong><br />
+                      {userLat.toFixed(4)}, {userLng.toFixed(4)}
+                    </Popup>
                   </Marker>
                   {currentStoresList.map((shop) => (
                     <Marker key={shop._id} position={shop.coords || [userLat, userLng]} icon={storePinIcon} eventHandlers={{ click: () => setSelectedShop(shop) }}>
@@ -1415,8 +1780,8 @@ export function ConsumerShoppingList() {
                     </Marker>
                   ))}
                 </MapContainer>
-                <div className="absolute bottom-2 left-2 z-[400] glass px-2.5 py-1 rounded-lg text-[10px] font-bold text-white">
-                  Tap pin to pick store
+                <div className="absolute bottom-2 left-2 z-[400] glass px-2.5 py-1 rounded-lg text-[10px] font-bold text-cyan-300 flex items-center gap-1">
+                  <span>📍</span> Tap anywhere on map to move home pin
                 </div>
               </div>
             </div>
@@ -1430,9 +1795,8 @@ export function ConsumerShoppingList() {
                     <div
                       key={shop._id}
                       onClick={() => setSelectedShop(shop)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                        isSelected ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                      }`}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xl">🏪</span>
@@ -1496,28 +1860,65 @@ export function ConsumerShoppingList() {
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('cash')}
-                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                  }`}
+                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                    }`}
                 >
                   💵 Cash on Delivery
                 </button>
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('card')}
-                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                  }`}
+                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                    }`}
                 >
                   💳 Credit / Debit Card
                 </button>
               </div>
               {paymentMethod === 'card' && (
-                <div className="glass p-3 rounded-xl border border-brand-500/30 bg-brand-500/5 space-y-2 animate-fade-up mt-2">
-                  <input type="text" placeholder="Card Number (4532 •••• •••• 8921)" value={cardForm.number} onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })} className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono" />
+                <div className="glass p-3.5 rounded-xl border border-brand-500/30 bg-brand-500/5 space-y-2.5 animate-fade-up mt-2">
+                  {user?.cardDetails?.cardNumberMasked && (
+                    <div className="flex items-center justify-between text-xs text-brand-300 font-bold bg-brand-500/15 px-3 py-2 rounded-lg border border-brand-500/40">
+                      <span className="flex items-center gap-1.5">
+                        <span>💳</span> Saved Card Loaded: <strong className="text-white font-mono">{user.cardDetails.cardNumberMasked}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCardForm({
+                          number: user.cardDetails.cardNumberMasked || '',
+                          expiry: user.cardDetails.expiryDate || '',
+                          cvv: '123'
+                        })}
+                        className="text-[10px] bg-brand-500 hover:bg-brand-400 text-slate-950 px-2.5 py-1 rounded-lg font-extrabold cursor-pointer transition-all shadow-glow"
+                      >
+                        ⚡ Auto-Fill Saved Card
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Card Number (4532 •••• •••• 8921)"
+                    maxLength={19}
+                    value={cardForm.number}
+                    onChange={handleModalCardNumberChange}
+                    className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
+                  />
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="MM/YY" value={cardForm.expiry} onChange={(e) => setCardForm({ ...cardForm, expiry: e.target.value })} className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono" />
-                    <input type="password" placeholder="CVV (123)" value={cardForm.cvv} onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })} className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono" />
+                    <input
+                      type="text"
+                      placeholder="MM/YY"
+                      maxLength={5}
+                      value={cardForm.expiry}
+                      onChange={handleModalCardExpiryChange}
+                      className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
+                    />
+                    <input
+                      type="password"
+                      placeholder="CVV (123)"
+                      maxLength={4}
+                      value={cardForm.cvv}
+                      onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
+                      className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
+                    />
                   </div>
                 </div>
               )}
@@ -1531,6 +1932,308 @@ export function ConsumerShoppingList() {
             >
               {placingOrder ? <><span className="spinner" /> Submitting Order...</> : '🚀 Submit Order to Shop'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bill History & Receipts Modal */}
+      {showBillHistoryModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass max-w-2xl w-full p-6 rounded-2xl border border-white/20 space-y-5 relative animate-scale-in bg-slate-900 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-xl font-bold">
+                  📜
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-white">Order Bill History & Invoices</h3>
+                  <p className="text-xs text-slate-400">View past purchase receipts, itemized details & delivery ratings.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBillHistoryModal(false)}
+                className="text-slate-400 hover:text-white text-xl font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Bill List */}
+            <div className="space-y-3 overflow-y-auto pr-1 flex-1 scrollbar-thin">
+              {billHistory.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 space-y-2">
+                  <span className="text-4xl">📜</span>
+                  <p className="text-white font-bold">No bill history found</p>
+                  <p className="text-xs text-slate-400">Your online store orders & receipts will appear here.</p>
+                </div>
+              ) : (
+                billHistory.map((bill) => (
+                  <div
+                    key={bill.id}
+                    className="glass p-4 rounded-xl border border-white/10 hover:border-amber-500/40 bg-white/5 space-y-3 transition-all"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-white text-sm">{bill.id}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                            {bill.status || 'Delivered 🎉'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Store: <strong className="text-white">{bill.shopName}</strong> • {bill.date}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-slate-400 block">Grand Total</span>
+                        <span className="text-base font-extrabold text-brand-300 font-mono">
+                          ${(bill.grandTotal || bill.subtotal || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Items preview */}
+                    <div className="text-xs text-slate-300 flex flex-wrap gap-2">
+                      {bill.items?.map((it, idx) => (
+                        <span key={idx} className="bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 font-mono text-[11px]">
+                          {it.emoji || '🛒'} {it.name} <span className="text-slate-400">({it.qty})</span>
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Review Badge if exists */}
+                    {bill.review && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg text-xs flex items-center justify-between">
+                        <span className="text-amber-300 font-bold flex items-center gap-1">
+                          ⭐ {'★'.repeat(bill.review.riderRating || 5)} - "{bill.review.reviewText}"
+                        </span>
+                        <span className="text-[10px] text-slate-400">Reviewed</span>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        OTP: <strong className="text-white">{bill.deliveryOtp || '----'}</strong> • Payment: <strong className="text-white uppercase">{bill.paymentMethod || 'cash'}</strong>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewReceipt(bill)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 font-bold transition-all cursor-pointer"
+                        >
+                          🧾 View Receipt
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Itemized Thermal Receipt Modal */}
+      {viewReceipt && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass max-w-sm w-full p-6 rounded-2xl border border-white/20 space-y-4 relative animate-scale-in bg-slate-950 shadow-2xl font-mono text-xs">
+            <button
+              type="button"
+              onClick={() => setViewReceipt(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="text-center border-b border-dashed border-white/20 pb-4 space-y-1">
+              <span className="text-3xl">🧾</span>
+              <h3 className="text-base font-extrabold text-white tracking-widest uppercase">FFDS STORE RECEIPT</h3>
+              <p className="text-[11px] text-slate-400">{viewReceipt.shopName}</p>
+              <p className="text-[10px] text-slate-500">{viewReceipt.shopAddress || 'Jaffna Main Branch'}</p>
+              <p className="text-[10px] text-brand-400 font-bold pt-1">Invoice: {viewReceipt.id}</p>
+              <p className="text-[10px] text-slate-400">{viewReceipt.date}</p>
+            </div>
+
+            <div className="space-y-2 border-b border-dashed border-white/20 pb-4">
+              <div className="flex justify-between text-slate-400 font-bold text-[10px] uppercase">
+                <span>Item</span>
+                <span>Qty / Price</span>
+              </div>
+              {viewReceipt.items?.map((it, idx) => (
+                <div key={idx} className="flex justify-between text-slate-200">
+                  <span>{it.emoji || '🛒'} {it.name}</span>
+                  <span className="text-right">{it.qty} • ${(it.price || 2.5).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1 text-slate-400 pt-1">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span className="text-white">${(viewReceipt.subtotal || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Delivery Fee:</span>
+                <span className="text-white">${(viewReceipt.deliveryFee || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Eco Packaging:</span>
+                <span className="text-white">${(viewReceipt.ecoFee || 0.50).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-sm text-brand-300 pt-2 border-t border-white/10">
+                <span>GRAND TOTAL:</span>
+                <span>${(viewReceipt.grandTotal || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="text-center pt-3 border-t border-dashed border-white/20 text-[10px] text-slate-400 space-y-1">
+              <p>Payment: <strong className="text-white uppercase">{viewReceipt.paymentMethod}</strong></p>
+              <p>Security OTP: <strong className="text-emerald-400">{viewReceipt.deliveryOtp}</strong></p>
+              <p className="text-emerald-300 font-bold pt-1">Thank you for shopping with FFDS! 🌿</p>
+            </div>
+
+            <button
+              onClick={() => { window.print(); }}
+              className="w-full py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all cursor-pointer mt-2"
+            >
+              🖨️ Print / Save Receipt
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rate & Review Delivery Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="glass max-w-md w-full p-6 rounded-2xl border border-white/20 space-y-5 relative animate-scale-in bg-slate-900 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowReviewModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-xl font-bold">
+                ⭐
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Rate & Review Delivery</h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  Order #{activeChecklistOrder?._id?.slice(-6) || '323809'} · Store: {activeSelectedShop?.shopName || 'super fast'}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              {/* Rider Rating */}
+              <div className="space-y-1.5 bg-white/5 p-3 rounded-xl border border-white/10">
+                <label className="block text-xs font-bold text-slate-200">
+                  🚴 Delivery Rider Rating (Nimal Perera #402):
+                </label>
+                <div className="flex items-center gap-2 pt-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRiderRating(star)}
+                      className={`text-2xl transition-transform cursor-pointer ${star <= riderRating ? 'text-amber-400 scale-110' : 'text-slate-600'
+                        }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <span className="text-xs font-extrabold text-amber-300 ml-2">
+                    {riderRating === 5 ? '5/5 Excellent!' : riderRating === 4 ? '4/5 Good' : `${riderRating}/5`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Store & Freshness Rating */}
+              <div className="space-y-1.5 bg-white/5 p-3 rounded-xl border border-white/10">
+                <label className="block text-xs font-bold text-slate-200">
+                  🍎 Produce Freshness & Store Rating:
+                </label>
+                <div className="flex items-center gap-2 pt-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setStoreRating(star)}
+                      className={`text-2xl transition-transform cursor-pointer ${star <= storeRating ? 'text-emerald-400 scale-110' : 'text-slate-600'
+                        }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <span className="text-xs font-extrabold text-emerald-300 ml-2">
+                    {storeRating === 5 ? '5/5 Super Fresh!' : `${storeRating}/5`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Tag Chips */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-300">
+                  🏷️ Highlight Tags:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    '⚡ Fast 10-Min Delivery',
+                    '🍎 Super Fresh Produce',
+                    '😊 Polite & Friendly Rider',
+                    '📦 Perfect Eco Packaging',
+                    '🧊 Cold Chain Maintained',
+                    '💯 Excellent Value',
+                  ].map((tag) => {
+                    const isSelected = selectedReviewTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedReviewTags(prev => prev.filter(t => t !== tag));
+                          } else {
+                            setSelectedReviewTags(prev => [...prev, tag]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 text-xs rounded-lg border font-medium transition-all cursor-pointer ${isSelected
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                            : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+                          }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Review Comment Box */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-300">
+                  ✍️ Written Review / Feedback:
+                </label>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Share your thoughts about rider speed, polite service, & produce freshness quality..."
+                  rows={3}
+                  className="input-dark w-full px-3 py-2.5 text-xs rounded-xl"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn-glow w-full py-3 rounded-xl text-white font-extrabold text-xs shadow-glow flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>⭐</span> Submit Delivery & Produce Review
+              </button>
+            </form>
           </div>
         </div>
       )}
@@ -1771,6 +2474,65 @@ export function ConsumerSettings() {
     }
   };
 
+  const formatCardDisplayNumber = (raw) => {
+    if (!raw) return '•••• •••• •••• 4242';
+    const digitsOnly = raw.replace(/\D/g, '').slice(0, 16);
+    if (!digitsOnly) {
+      const cleaned = raw.replace(/[^\d•]/g, '').slice(0, 19);
+      if (!cleaned) return '•••• •••• •••• 4242';
+      return cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    }
+    return digitsOnly.match(/.{1,4}/g)?.join(' ') || digitsOnly;
+  };
+
+  const getCardBrandInfo = (raw) => {
+    const digits = (raw || '').replace(/\D/g, '');
+    if (digits.startsWith('5')) {
+      return { name: 'MASTERCARD', color: 'text-amber-400', badgeBg: 'bg-amber-500/20 border-amber-500/30' };
+    }
+    if (digits.startsWith('3')) {
+      return { name: 'AMEX', color: 'text-cyan-400', badgeBg: 'bg-cyan-500/20 border-cyan-500/30' };
+    }
+    if (digits.startsWith('4')) {
+      return { name: 'VISA', color: 'text-blue-400', badgeBg: 'bg-blue-500/20 border-blue-500/30' };
+    }
+    return { name: 'DEBIT / CREDIT', color: 'text-emerald-400', badgeBg: 'bg-emerald-500/20 border-emerald-500/30' };
+  };
+
+  const cardBrand = getCardBrandInfo(formData.cardNumberMasked);
+
+  const handleExpiryDateChange = (e) => {
+    let raw = e.target.value.replace(/\D/g, '');
+    if (raw.length > 4) raw = raw.slice(0, 4);
+
+    let formatted = '';
+    if (raw.length > 0) {
+      let m = raw.slice(0, 2);
+      if (raw.length === 1 && parseInt(raw[0], 10) > 1) {
+        m = '0' + raw[0];
+        raw = m;
+      } else if (m.length === 2) {
+        const monthNum = parseInt(m, 10);
+        if (monthNum < 1) m = '01';
+        if (monthNum > 12) m = '12';
+      }
+      formatted = m;
+      if (raw.length > 2) {
+        formatted += '/' + raw.slice(2, 4);
+      } else if (raw.length === 2 && e.nativeEvent.inputType !== 'deleteContentBackward') {
+        formatted += '/';
+      }
+    }
+    setFormData((prev) => ({ ...prev, expiryDate: formatted }));
+  };
+
+  const handleCardNumberChange = (e) => {
+    const rawVal = e.target.value;
+    const digitsOnly = rawVal.replace(/\D/g, '').slice(0, 16);
+    const formatted = digitsOnly.match(/.{1,4}/g)?.join(' ') || digitsOnly;
+    setFormData((prev) => ({ ...prev, cardNumberMasked: formatted }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -1799,116 +2561,383 @@ export function ConsumerSettings() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto fade-up pb-12">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2"><span>⚙️</span> Consumer Account & Delivery Setup</h1>
-        <p className="text-slate-400 text-sm mt-1">Configure profile details, saved delivery location on map, and payment card details.</p>
-      </div>
-
-      <div className="glass p-6 rounded-2xl border border-white/10 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">⚠️ {error}</div>}
-          {success && <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 text-sm">✅ {success}</div>}
-
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Account & Contact Details</h4>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Full Name</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" required />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Email Address</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" required />
+    <div className="space-y-6 max-w-4xl mx-auto animate-fade-up pb-16">
+      {/* Profile Hero Header Banner */}
+      <div className="glass p-6 sm:p-8 rounded-3xl border border-emerald-500/20 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 relative z-10">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-glow">
+              <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-2xl font-black text-emerald-300">
+                {formData.name ? formData.name.charAt(0).toUpperCase() : '👤'}
               </div>
             </div>
+            <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-slate-950 p-1 rounded-full text-xs font-bold shadow-md" title="Verified Account">
+              ✓
+            </span>
+          </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">🇱🇰 Mobile Phone Number</label>
-                <input type="text" placeholder="+94 77 123 4567" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">📮 Sri Lanka Postal Code</label>
-                <input type="text" placeholder="e.g. 40000, 40130, 00100" value={formData.postalCode} onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono" />
-              </div>
+          <div className="space-y-2 text-center sm:text-left flex-1">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                {formData.name || 'Consumer Profile'}
+              </h1>
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold uppercase tracking-wider">
+                🍏 Verified Consumer
+              </span>
+            </div>
+            
+            <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
+              Configure your profile details, Sri Lanka house pin location for rapid grocery store dispatch, and saved payment options.
+            </p>
+
+            <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-2 text-xs font-mono">
+              <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 flex items-center gap-1.5">
+                <span>📧</span> {formData.email || 'No email set'}
+              </span>
+              <span className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 flex items-center gap-1.5">
+                <span>🇱🇰</span> {formData.phone || 'No phone set'}
+              </span>
+              <span className="px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5 font-bold">
+                <span>📍</span> Pin: {pinPos[0].toFixed(3)}, {pinPos[1].toFixed(3)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Form Content */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Dynamic Alerts */}
+        {error && (
+          <div className="glass p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-300 text-xs sm:text-sm flex items-center gap-3 animate-fade-up">
+            <span className="text-xl">⚠️</span>
+            <div className="flex-1 font-medium">{error}</div>
+          </div>
+        )}
+        {success && (
+          <div className="glass p-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs sm:text-sm flex items-center gap-3 animate-fade-up shadow-glow">
+            <span className="text-xl">🎉</span>
+            <div className="flex-1 font-medium">{success}</div>
+          </div>
+        )}
+
+        {/* Card 1: Account & Contact Details */}
+        <div className="glass p-6 sm:p-7 rounded-2xl border border-white/10 space-y-5 bg-slate-900/60 shadow-xl">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300 text-lg font-bold">
+              👤
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white">Account & Contact Details</h3>
+              <p className="text-xs text-slate-400">Personal information used for delivery invoices & notifications</p>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/10 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><span>📍</span> Sri Lanka Delivery Location & Map</h4>
-              <button type="button" onClick={handleDetectLocation} className="px-3 py-1.5 rounded-xl bg-brand-500/20 text-brand-300 border border-brand-500/30 text-xs font-semibold hover:bg-brand-500/30 transition-all">🎯 Detect GPS Location</button>
-            </div>
-
-            {/* Quick Postal Code Filter & Selector */}
-            <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white/10">
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-brand-300 uppercase">
-                  📮 Search & Select Sri Lanka Town / Postal Code (Auto-Pin Map)
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {filteredPostalCodes.length} towns
-                </span>
-              </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 flex items-center gap-1">
+                <span>👤</span> Full Name
+              </label>
               <input
                 type="text"
-                placeholder="🔍 Type town name or code (e.g. Tellipalai, Vasavilan, Chunnakam, 40130)..."
-                value={postalSearchQuery}
-                onChange={(e) => setPostalSearchQuery(e.target.value)}
-                className="input-dark w-full px-3.5 py-2 text-xs rounded-xl mb-2"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="input-dark w-full px-4 py-3 text-xs sm:text-sm rounded-xl font-medium"
+                placeholder="e.g. Lambotharan"
+                required
               />
-              <select
-                onChange={(e) => {
-                  const sel = SRI_LANKA_POSTAL_CODES.find((c) => c.code === e.target.value);
-                  if (sel) handleSelectPostalCode(sel);
-                }}
-                className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl cursor-pointer"
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 flex items-center gap-1">
+                <span>✉️</span> Email Address
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="input-dark w-full px-4 py-3 text-xs sm:text-sm rounded-xl font-medium"
+                placeholder="name@example.com"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 flex items-center gap-1">
+                <span>🇱🇰</span> Mobile Phone Number
+              </label>
+              <input
+                type="text"
+                placeholder="+94 77 123 4567"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="input-dark w-full px-4 py-3 text-xs sm:text-sm rounded-xl font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5 flex items-center gap-1">
+                <span>📮</span> Sri Lanka Postal Code
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 40000, 40130, 00100"
                 value={formData.postalCode}
+                onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                className="input-dark w-full px-4 py-3 text-xs sm:text-sm rounded-xl font-mono"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Sri Lanka Delivery Location & Map Precision Pin */}
+        <div className="glass p-6 sm:p-7 rounded-2xl border border-white/10 space-y-5 bg-slate-900/60 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-300 text-lg font-bold">
+                📍
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Delivery Location & Precise House Pin</h3>
+                <p className="text-xs text-slate-400">Set exact coordinates for 10-15 minute grocery store dispatch</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDetectLocation}
+              className="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-glow"
+            >
+              <span>🎯</span> Detect GPS Location
+            </button>
+          </div>
+
+          {/* Street Address Search */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-slate-300 uppercase flex items-center justify-between">
+              <span>🏠 Street Address / Landmark</span>
+              <span className="text-[11px] text-slate-400 font-normal">Type address & search to pin on map</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. KKS Road, Chunnakam, Jaffna..."
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="input-dark flex-1 px-4 py-2.5 text-xs sm:text-sm rounded-xl"
+              />
+              <button
+                type="button"
+                onClick={handleSearchAddressLocation}
+                disabled={searchingAddress}
+                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <option value="" disabled>-- Select from {filteredPostalCodes.length} Sri Lanka Towns / Postal Codes --</option>
-                {filteredPostalCodes.map((item) => (
-                  <option key={item.code + item.name} value={item.code}>
-                    [{item.code}] {item.district} - {item.name}
-                  </option>
-                ))}
-              </select>
+                {searchingAddress ? <span className="spinner" /> : '🔍 Search Map'}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Postal Code Search & Dropdown Selector */}
+          <div className="glass p-4 rounded-xl border border-brand-500/30 bg-brand-500/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-extrabold text-brand-300 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📮</span> Quick Select Sri Lanka Town (Auto-Pin Map)
+              </label>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 font-mono font-bold">
+                {filteredPostalCodes.length} towns match
+              </span>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-                <span>Click map to adjust pin position manually</span>
-                <span>Lat: {pinPos[0].toFixed(4)}, Lng: {pinPos[1].toFixed(4)}</span>
+            <input
+              type="text"
+              placeholder="🔍 Search town name or code (e.g. Tellipalai, Chunnakam, Colombo, 40130)..."
+              value={postalSearchQuery}
+              onChange={(e) => setPostalSearchQuery(e.target.value)}
+              className="input-dark w-full px-3.5 py-2 text-xs rounded-xl"
+            />
+
+            <select
+              onChange={(e) => {
+                const sel = SRI_LANKA_POSTAL_CODES.find((c) => c.code === e.target.value);
+                if (sel) handleSelectPostalCode(sel);
+              }}
+              className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl cursor-pointer font-medium"
+              value={formData.postalCode}
+            >
+              <option value="" disabled>-- Select Town to Pin Map --</option>
+              {filteredPostalCodes.map((item) => (
+                <option key={item.code + item.name} value={item.code}>
+                  📍 [{item.code}] {item.district} — {item.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Interactive Map */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+              <span className="text-cyan-300 font-bold">👇 Tap or drag pin on map to set house location</span>
+              <span className="bg-slate-950 px-2.5 py-1 rounded-lg border border-white/10 text-white font-bold">
+                Lat: {pinPos[0].toFixed(4)}, Lng: {pinPos[1].toFixed(4)}
+              </span>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-white/15 shadow-2xl relative" style={{ height: 280 }}>
+              <MapContainer center={pinPos} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <FlyToLocation center={pinPos} />
+                <MapEventsHandler onLocationSelect={(lat, lng) => setPinPos([lat, lng])} />
+                <Marker position={pinPos} icon={userPinIcon}>
+                  <Popup>
+                    <strong>📍 Your Marked Delivery Pin</strong><br />
+                    {pinPos[0].toFixed(4)}, {pinPos[1].toFixed(4)}
+                  </Popup>
+                </Marker>
+              </MapContainer>
+
+              <div className="absolute bottom-3 left-3 z-[400] glass px-3 py-1.5 rounded-xl text-[11px] font-bold text-cyan-300 flex items-center gap-1.5 shadow-lg border border-cyan-500/30">
+                <span>📍</span> Tap map anywhere to refine house entry point
               </div>
-              <div className="rounded-xl overflow-hidden border border-white/10" style={{ height: 260 }}>
-                <MapContainer center={pinPos} zoom={13} style={{ height: '100%', width: '100%' }}>
-                  <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <FlyToLocation center={pinPos} />
-                  <MapPinPicker position={pinPos} onPick={setPinPos} />
-                </MapContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Saved Payment Card Details */}
+        <div className="glass p-6 sm:p-7 rounded-2xl border border-white/10 space-y-5 bg-slate-900/60 shadow-xl">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-300 text-lg font-bold">
+              💳
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white">Payment Method & Card Details</h3>
+              <p className="text-xs text-slate-400">Manage payment card information for fast 1-click checkout</p>
+            </div>
+          </div>
+
+          {/* Visual Credit Card Preview */}
+          <div className="glass p-6 rounded-2xl border border-white/15 bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-800 shadow-2xl space-y-4 max-w-md mx-auto relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between relative z-10">
+              <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-slate-400">FFDS EXPRESS PAY</span>
+              <span className={`text-xs font-extrabold font-mono px-2.5 py-1 rounded-lg border ${cardBrand.badgeBg} ${cardBrand.color} shadow-sm`}>
+                💳 {cardBrand.name}
+              </span>
+            </div>
+
+            {/* Authentic Golden EMV Metallic Chip Graphic */}
+            <div className="relative z-10 my-1">
+              <div className="w-11 h-8 bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-600 rounded-md border border-amber-300/60 shadow-md relative overflow-hidden flex items-center justify-center">
+                <div className="w-full h-[1px] bg-amber-900/50 absolute top-2.5" />
+                <div className="w-full h-[1px] bg-amber-900/50 absolute bottom-2.5" />
+                <div className="w-[1px] h-full bg-amber-900/50 absolute left-4" />
+                <div className="w-2.5 h-3 rounded-sm border border-amber-900/40" />
+              </div>
+            </div>
+
+            <div className="pt-1 relative z-10">
+              <span className="text-[9px] text-slate-400 uppercase font-mono block mb-1">Card Number</span>
+              <p className="text-lg sm:text-xl font-mono font-extrabold text-white tracking-widest truncate">
+                {formatCardDisplayNumber(formData.cardNumberMasked)}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-1 text-xs font-mono relative z-10">
+              <div className="max-w-[220px] truncate">
+                <span className="text-[9px] text-slate-400 uppercase block">Cardholder</span>
+                <span className="font-bold text-slate-200 uppercase tracking-wider truncate block">
+                  {formData.cardHolderName ? formData.cardHolderName.toUpperCase() : (formData.name ? formData.name.toUpperCase() : 'CARDHOLDER NAME')}
+                </span>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-[9px] text-slate-400 uppercase block">Expires</span>
+                <span className="font-bold text-slate-200">{formData.expiryDate || 'MM/YY'}</span>
               </div>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/10 space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><span>💳</span> Saved Payment Card Details</h4>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Cardholder Name</label>
-                <input type="text" placeholder="e.g. John Doe" value={formData.cardHolderName} onChange={(e) => setFormData({ ...formData, cardHolderName: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Card Number</label>
-                <input type="text" placeholder="•••• •••• •••• 4242" value={formData.cardNumberMasked} onChange={(e) => setFormData({ ...formData, cardNumberMasked: e.target.value })} className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono" />
-              </div>
+          <div className="grid sm:grid-cols-3 gap-4 pt-2">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">Cardholder Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Debit Card / Srilambotharan"
+                maxLength={26}
+                value={formData.cardHolderName}
+                onChange={(e) => setFormData({ ...formData, cardHolderName: e.target.value })}
+                className="input-dark w-full px-4 py-2.5 text-xs sm:text-sm rounded-xl font-medium"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">Expiry Date</label>
+              <input
+                type="text"
+                placeholder="MM/YY (e.g. 06/30)"
+                maxLength={5}
+                value={formData.expiryDate}
+                onChange={handleExpiryDateChange}
+                className="input-dark w-full px-4 py-2.5 text-xs sm:text-sm rounded-xl font-mono text-center"
+              />
             </div>
           </div>
 
-          <button type="submit" disabled={submitting} className="btn-glow w-full py-3 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2">
-            {submitting ? <span className="spinner" /> : '💾 Save Profile & Delivery Preferences'}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">Card Number (Max 16 Digits, Auto-Grouped)</label>
+            <input
+              type="text"
+              placeholder="4532 8921 4412 4242"
+              maxLength={19}
+              value={formData.cardNumberMasked}
+              onChange={handleCardNumberChange}
+              className="input-dark w-full px-4 py-2.5 text-xs sm:text-sm rounded-xl font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Card 4: Language & Regional Preferences */}
+        <div className="glass p-6 sm:p-7 rounded-2xl border border-white/10 space-y-4 bg-slate-900/60 shadow-xl">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 text-lg font-bold">
+              🌐
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-white">App Language & Regional Settings</h3>
+              <p className="text-xs text-slate-400">Select your preferred display language for UI & notifications</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">Preferred Language</label>
+            <select
+              value={formData.language}
+              onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+              className="input-dark w-full px-4 py-3 text-xs sm:text-sm rounded-xl font-bold cursor-pointer"
+            >
+              <option value="en">English (US)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="si">සිංහල (Sinhala)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Submit Save Button */}
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="btn-glow w-full py-4 rounded-2xl text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-3 shadow-glow cursor-pointer disabled:opacity-50 transition-all hover:scale-[1.01]"
+          >
+            {submitting ? (
+              <>
+                <span className="spinner" /> Saving Updates...
+              </>
+            ) : (
+              '💾 Save Profile & Delivery Preferences'
+            )}
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

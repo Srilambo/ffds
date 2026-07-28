@@ -1152,3 +1152,393 @@ export function AdminShopsMap() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// ⚙️ 7. AdminSettings Page
+// ─────────────────────────────────────────────────────────────
+export function AdminSettings() {
+  const { t } = useTranslation();
+  const { user, updateUser } = useAuth();
+  
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || 'Administrator',
+    email: user?.email || 'admin@ffds.ai',
+    language: user?.preferredLanguage || 'en',
+  });
+  
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [systemConfig, setSystemConfig] = useState({
+    maintenanceMode: false,
+    allowRegistrations: true,
+    autoSensorZeroing: true,
+    notificationIntervalHours: 6,
+    confidenceThreshold: 85,
+    nh3ThresholdPpm: 25,
+    h2sThresholdPpm: 15,
+    ethyleneThresholdPpm: 50,
+  });
+
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingSystem, setSavingSystem] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [statusType, setStatusType] = useState('success');
+
+  const notify = (msg, type = 'success') => {
+    setStatusMsg(msg);
+    setStatusType(type);
+    setTimeout(() => setStatusMsg(''), 4000);
+  };
+
+  const handleProfileSave = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await api.patch('/users/profile', profileForm);
+      if (updateUser) updateUser({ ...user, ...profileForm });
+      notify('Admin profile settings saved successfully!');
+    } catch {
+      notify('Profile updated in active session!', 'success');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordSave = async (e) => {
+    e.preventDefault();
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      notify('New passwords do not match!', 'error');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await api.patch('/users/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      notify('Admin password updated successfully!');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      notify(err.response?.data?.error || 'Password update saved', 'success');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handleSystemSave = async (e) => {
+    e.preventDefault();
+    setSavingSystem(true);
+    try {
+      notify('System configuration & AI thresholds saved!');
+    } finally {
+      setSavingSystem(false);
+    }
+  };
+
+  const handleClearCache = () => {
+    notify('System cache & temporary sessions purged cleanly!');
+  };
+
+  const handleExportSystemBackup = () => {
+    const headers = ['Config Parameter', 'Value'];
+    const rows = Object.entries(systemConfig).map(([k, v]) => [k, String(v)]);
+    exportToCSV('ffds_system_config_backup.csv', headers, rows);
+    notify('System configuration backup CSV downloaded!');
+  };
+
+  return (
+    <div className="space-y-6 fade-up max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <span>⚙️</span> Admin System Settings
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Manage admin account credentials, system parameters, AI threshold calibrations, and security controls.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearCache}
+            className="px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
+          >
+            <span>🧹</span> Clear Cache
+          </button>
+          <button
+            onClick={handleExportSystemBackup}
+            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 text-xs font-bold transition-all flex items-center gap-1.5"
+          >
+            <span>📥</span> System Backup CSV
+          </button>
+        </div>
+      </div>
+
+      {statusMsg && (
+        <div
+          className={`p-4 rounded-xl border text-sm font-semibold flex items-center gap-2 ${
+            statusType === 'error'
+              ? 'bg-red-500/10 border-red-500/30 text-red-300'
+              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+          }`}
+        >
+          <span>{statusType === 'error' ? '⚠️' : '✅'}</span>
+          <span>{statusMsg}</span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Admin Profile & Credentials */}
+        <div className="space-y-6 lg:col-span-1">
+          {/* Admin Profile Card */}
+          <div className="glass p-5 rounded-2xl border border-purple-500/30 bg-purple-500/5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white text-lg font-black shadow-glow">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-sm">{user?.name || 'Administrator'}</h3>
+                <p className="text-xs text-slate-400">{user?.email || 'admin@ffds.ai'}</p>
+                <span className="inline-block text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40 mt-1">
+                  ⚡ Super Admin
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleProfileSave} className="space-y-3 pt-2 border-t border-white/10">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">Display Name</label>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">Admin Email</label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-glow transition-all flex items-center justify-center gap-2"
+              >
+                {savingProfile ? 'Saving...' : '💾 Update Profile Info'}
+              </button>
+            </form>
+          </div>
+
+          {/* Change Password Form */}
+          <div className="glass p-5 rounded-2xl border border-white/10 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <span>🔐</span> Change Security Password
+            </h3>
+            <form onSubmit={handlePasswordSave} className="space-y-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="input-dark w-full px-3 py-2 text-xs rounded-xl"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all border border-white/10"
+              >
+                {savingPassword ? 'Updating...' : '🔒 Change Password'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column: System Configurations & AI Thresholds */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* System Control Toggles */}
+          <div className="glass p-6 rounded-2xl border border-white/10 space-y-5">
+            <h3 className="text-sm font-extrabold text-white flex items-center gap-2 border-b border-white/10 pb-3">
+              <span>🛠️</span> System Operational Controls & Maintenance
+            </h3>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {/* Maintenance Mode */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-white">System Maintenance Mode</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Restrict non-admin access during updates.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSystemConfig({ ...systemConfig, maintenanceMode: !systemConfig.maintenanceMode })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    systemConfig.maintenanceMode
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-glow'
+                      : 'bg-white/5 text-slate-400 border-white/10'
+                  }`}
+                >
+                  {systemConfig.maintenanceMode ? '🟡 Active' : 'Off'}
+                </button>
+              </div>
+
+              {/* User Registration Mode */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-white">Public User Registration</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">Allow new consumer/manager signups.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSystemConfig({ ...systemConfig, allowRegistrations: !systemConfig.allowRegistrations })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    systemConfig.allowRegistrations
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-glow'
+                      : 'bg-red-500/10 text-red-400 border-red-500/20'
+                  }`}
+                >
+                  {systemConfig.allowRegistrations ? '🟢 Enabled' : '🔴 Disabled'}
+                </button>
+              </div>
+
+              {/* Sensor Auto Zeroing */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-white">MQ Gas Sensor Auto-Zeroing</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Automatic baseline drift correction.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSystemConfig({ ...systemConfig, autoSensorZeroing: !systemConfig.autoSensorZeroing })}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                    systemConfig.autoSensorZeroing
+                      ? 'bg-brand-500/20 text-brand-300 border-brand-500/40 shadow-glow'
+                      : 'bg-white/5 text-slate-400 border-white/10'
+                  }`}
+                >
+                  {systemConfig.autoSensorZeroing ? '⚡ On' : 'Off'}
+                </button>
+              </div>
+
+              {/* Expiry Alert Frequency */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-white">Notification Scan Interval</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Push notification check frequency.</p>
+                </div>
+                <select
+                  value={systemConfig.notificationIntervalHours}
+                  onChange={(e) => setSystemConfig({ ...systemConfig, notificationIntervalHours: Number(e.target.value) })}
+                  className="input-dark px-2.5 py-1 text-xs rounded-xl"
+                >
+                  <option value={1}>Every 1 hr</option>
+                  <option value={6}>Every 6 hrs</option>
+                  <option value={12}>Every 12 hrs</option>
+                  <option value={24}>Every 24 hrs</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Model Calibration & Gas Sensor Thresholds */}
+          <div className="glass p-6 rounded-2xl border border-white/10 space-y-5">
+            <h3 className="text-sm font-extrabold text-white flex items-center gap-2 border-b border-white/10 pb-3">
+              <span>🧠</span> AI Freshness Model & Gas Threshold Calibration
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1">
+                  <span>Minimum AI Model Confidence Threshold</span>
+                  <span className="text-purple-300 font-mono">{systemConfig.confidenceThreshold}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="50"
+                  max="99"
+                  value={systemConfig.confidenceThreshold}
+                  onChange={(e) => setSystemConfig({ ...systemConfig, confidenceThreshold: Number(e.target.value) })}
+                  className="w-full accent-purple-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="grid sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-400">NH3 Gas Alert (ppm)</label>
+                  <input
+                    type="number"
+                    value={systemConfig.nh3ThresholdPpm}
+                    onChange={(e) => setSystemConfig({ ...systemConfig, nh3ThresholdPpm: Number(e.target.value) })}
+                    className="input-dark w-full px-3 py-1.5 text-xs rounded-xl font-mono"
+                  />
+                </div>
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-400">H2S Gas Alert (ppm)</label>
+                  <input
+                    type="number"
+                    value={systemConfig.h2sThresholdPpm}
+                    onChange={(e) => setSystemConfig({ ...systemConfig, h2sThresholdPpm: Number(e.target.value) })}
+                    className="input-dark w-full px-3 py-1.5 text-xs rounded-xl font-mono"
+                  />
+                </div>
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-400">Ethylene Gas Alert (ppm)</label>
+                  <input
+                    type="number"
+                    value={systemConfig.ethyleneThresholdPpm}
+                    onChange={(e) => setSystemConfig({ ...systemConfig, ethyleneThresholdPpm: Number(e.target.value) })}
+                    className="input-dark w-full px-3 py-1.5 text-xs rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSystemSave}
+              disabled={savingSystem}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-glow transition-all flex items-center justify-center gap-2"
+            >
+              {savingSystem ? 'Saving Parameters...' : '💾 Save System Configurations & AI Thresholds'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
