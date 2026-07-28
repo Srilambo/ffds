@@ -254,7 +254,7 @@ export default function Scan() {
 
       {/* Add to inventory modal */}
       {showInventoryForm && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm drawer-overlay">
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-0 sm:p-4 pb-20 sm:pb-4 bg-black/60 backdrop-blur-sm drawer-overlay">
           <div className="glass w-full sm:max-w-md p-6 shadow-2xl rounded-t-3xl sm:rounded-2xl animate-fade-up safe-bottom">
             <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
             <div className="flex items-center justify-between mb-5">
@@ -278,16 +278,16 @@ export default function Scan() {
                     <option key={c} value={c}>{t(`inventory.category.${c}`)}</option>
                   ))}
                 </select>
-                <div className="flex gap-2">
+                <div className="flex gap-2 min-w-0">
                   <input
                     type="number" value={invForm.quantity}
                     onChange={(e) => setInvForm({ ...invForm, quantity: +e.target.value })}
-                    className="input-dark px-3 py-2.5 text-sm w-20"
+                    className="input-dark px-3 py-2.5 text-sm w-20 shrink-0"
                   />
                   <input
                     value={invForm.unit}
                     onChange={(e) => setInvForm({ ...invForm, unit: e.target.value })}
-                    className="input-dark px-3 py-2.5 text-sm flex-1"
+                    className="input-dark px-3 py-2.5 text-sm flex-1 min-w-0 w-full"
                     placeholder={t('inventory.unit')}
                   />
                 </div>
