@@ -47,6 +47,7 @@ import {
   ConsumerRecipes,
   ConsumerShoppingList,
   ConsumerSettings,
+  ConsumerChatbot,
 } from './pages/consumer/ConsumerPages';
 
 function RoleRedirect() {
@@ -105,6 +106,9 @@ export default function AppRoutes() {
                 <Route path="/consumer/history"       element={<ConsumerHistory />} />
                 <Route path="/consumer/recipes"       element={<ConsumerRecipes />} />
                 <Route path="/consumer/shopping-list" element={<ConsumerShoppingList />} />
+                <Route path="/consumer/chatbot"       element={<ConsumerChatbot />} />
+                <Route path="/consumer/ai-assistant flex" element={<ConsumerChatbot />} />
+                <Route path="/consumer/settings flex"      element={<ConsumerSettings />} />
                 <Route path="/consumer/settings"      element={<ConsumerSettings />} />
                 <Route path="/consumer/profile"       element={<ConsumerSettings />} />
 
