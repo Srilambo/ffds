@@ -18,23 +18,47 @@ const DATASET_FOOD_CLASSES_SET = new Set(DATASET_FOOD_CLASSES.map(c => c.toLower
 const DATASET_CLASS_NAMES = {
   // Exact dataset class names (10 classes from Kaggle Fruits & Vegetables Dataset)
   apple: 'Apple',
+  apples: 'Apple',
   banana: 'Banana',
+  bananas: 'Banana',
   mango: 'Mango',
+  mangos: 'Mango',
+  mangoes: 'Mango',
   orange: 'Orange',
+  oranges: 'Orange',
   strawberry: 'Strawberry',
+  strawberries: 'Strawberry',
   bellpepper: 'Bellpepper',
+  bellpeppers: 'Bellpepper',
   'bell pepper': 'Bellpepper',
+  'bell peppers': 'Bellpepper',
   capsicum: 'Bellpepper',
   carrot: 'Carrot',
+  carrots: 'Carrot',
   cucumber: 'Cucumber',
+  cucumbers: 'Cucumber',
   potato: 'Potato',
+  potatoes: 'Potato',
   tomato: 'Tomato',
+  tomatoes: 'Tomato',
 };
 
 function normalizeFoodTypeName(name) {
-  const key = (name || '').toLowerCase().trim();
-  if (DATASET_CLASS_NAMES[key]) return DATASET_CLASS_NAMES[key];
   if (!name) return 'Food Item';
+  const key = name.toLowerCase().trim();
+  if (DATASET_CLASS_NAMES[key]) return DATASET_CLASS_NAMES[key];
+
+  if (key.includes('carrot')) return 'Carrot';
+  if (key.includes('apple')) return 'Apple';
+  if (key.includes('banana')) return 'Banana';
+  if (key.includes('mango')) return 'Mango';
+  if (key.includes('orange')) return 'Orange';
+  if (key.includes('strawberr')) return 'Strawberry';
+  if (key.includes('bellpepper') || key.includes('bell pepper') || key.includes('capsicum')) return 'Bellpepper';
+  if (key.includes('cucumber')) return 'Cucumber';
+  if (key.includes('potato')) return 'Potato';
+  if (key.includes('tomato')) return 'Tomato';
+
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
@@ -43,7 +67,9 @@ function normalizeFoodTypeName(name) {
  * Used to validate Gemini Vision output against trained model classes.
  */
 function isDatasetClass(name) {
-  return DATASET_FOOD_CLASSES_SET.has((name || '').toLowerCase().trim());
+  if (!name) return false;
+  const normalized = normalizeFoodTypeName(name);
+  return DATASET_FOOD_CLASSES_SET.has(normalized.toLowerCase().trim());
 }
 
 function isGenericFoodLabel(name) {
