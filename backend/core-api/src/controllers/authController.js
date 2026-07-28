@@ -44,6 +44,11 @@ function sanitizeUser(user) {
       pushEnabled: true,
       reminderDays: 2,
     },
+    phone: user.phone || '',
+    postalCode: user.postalCode || '',
+    address: user.address || '',
+    location: user.location || { type: 'Point', coordinates: [79.8612, 6.9271] },
+    cardDetails: user.cardDetails || { cardHolderName: '', cardNumberMasked: '', expiryDate: '' },
     isActive: user.isActive,
     lastLogin: user.lastLogin,
   };
@@ -152,13 +157,26 @@ async function me(req, res, next) {
 
 async function updateProfile(req, res, next) {
   try {
-    const { name, email, language, notificationPrefs } = req.body;
+    const { name, email, language, notificationPrefs, address, phone, postalCode, location, cardDetails } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     if (name) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (postalCode !== undefined) user.postalCode = postalCode;
+    if (address !== undefined) user.address = address;
+    if (location && location.coordinates && Array.isArray(location.coordinates)) {
+      user.location = { type: 'Point', coordinates: location.coordinates };
+    }
+    if (cardDetails) {
+      user.cardDetails = {
+        cardHolderName: cardDetails.cardHolderName || user.cardDetails?.cardHolderName || '',
+        cardNumberMasked: cardDetails.cardNumberMasked || user.cardDetails?.cardNumberMasked || '',
+        expiryDate: cardDetails.expiryDate || user.cardDetails?.expiryDate || '',
+      };
+    }
     if (language) {
       if (!['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
         return res.status(400).json({ error: 'Language must be en, si, ta, ar, fr, or ja' });
