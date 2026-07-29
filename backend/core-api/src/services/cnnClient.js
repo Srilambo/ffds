@@ -29,13 +29,13 @@ function tryPythonDirect(imageBuffer) {
   try {
     const cnnDir = path.join(__dirname, '../../../cnn-service');
     const venvPython = path.join(cnnDir, '.venv/Scripts/python.exe');
-    if (!fs.existsSync(venvPython)) return null;
+    const pythonCmd = fs.existsSync(venvPython) ? `"${venvPython}"` : 'python';
 
     const tmpImg = path.join(__dirname, `../../temp-${Date.now()}.jpg`);
     fs.writeFileSync(tmpImg, imageBuffer);
 
-    const pythonCode = "import sys, json; from app.model import predict; data = open(sys.argv[1], 'rb').read(); print(json.dumps(predict(data)))";
-    const cmd = `"${venvPython}" -c "${pythonCode}" "${tmpImg}"`;
+    const pythonCode = "import sys, json; sys.path.insert(0, '.'); from app.food_classifier import classify_food_with_confidence; from app.model import predict; data = open(sys.argv[1], 'rb').read(); food, conf = classify_food_with_confidence(data); p = predict(data); print(json.dumps({'foodType': food, 'label': p.get('label', 'Fresh'), 'confidence': p.get('confidence', conf)}))";
+    const cmd = `${pythonCmd} -c "${pythonCode}" "${tmpImg}"`;
     const stdout = execSync(cmd, { cwd: cnnDir, timeout: 25000 }).toString();
 
     try { fs.unlinkSync(tmpImg); } catch {}

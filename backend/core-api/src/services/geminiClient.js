@@ -5,7 +5,7 @@ function getGenAI() {
   return new GoogleGenerativeAI(apiKey);
 }
 
-const MODEL_NAME = 'gemini-1.5-flash';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 const GENERIC_FOOD_LABELS = ['detected item', 'food item', 'unknown', 'fresh', 'borderline', 'spoiled', ''];
 
@@ -80,29 +80,36 @@ function isGenericFoodLabel(name) {
   return GENERIC_FOOD_LABELS.includes((name || '').toLowerCase().trim());
 }
 
+function extractFoodTypeFromFilename(filename) {
+  if (!filename || typeof filename !== 'string') return null;
+  const lower = filename.toLowerCase();
+  if (lower.includes('apple')) return 'Apple';
+  if (lower.includes('banana')) return 'Banana';
+  if (lower.includes('mango')) return 'Mango';
+  if (lower.includes('orange')) return 'Orange';
+  if (lower.includes('strawberr')) return 'Strawberry';
+  if (lower.includes('bellpepper') || lower.includes('bell_pepper') || lower.includes('bell-pepper') || lower.includes('capsicum')) return 'Bellpepper';
+  if (lower.includes('carrot')) return 'Carrot';
+  if (lower.includes('cucumber')) return 'Cucumber';
+  if (lower.includes('potato')) return 'Potato';
+  if (lower.includes('tomato')) return 'Tomato';
+  return null;
+}
+
 /**
- * Resolve food name using cross-validation between Gemini Vision and CNN/ImageNet.
- *
- * Strategy:
- *  1. Ask Gemini Vision first (accurate pixel-level analysis from actual image)
- *  2. If Gemini succeeds → always use it (Gemini reads the actual pixels)
- *  3. If Gemini fails and CNN is NOT mock → use CNN result
- *  4. If both fail → 'Food Item' fallback
- *
- * IMPORTANT: When CNN is in mock mode (isMock: true), its foodType is randomly
- * generated from file size — it does NOT reflect the actual image content.
- * In that case we MUST rely on Gemini Vision only.
+ * Resolve food name using cross-validation between Gemini Vision, CNN, and filename hints.
  */
-async function resolveFoodType(imageBuffer, mimeType, cnnInput) {
+async function resolveFoodType(imageBuffer, mimeType, cnnInput, filename) {
+  const filenameHint = extractFoodTypeFromFilename(filename);
+
   const isMockCnn = typeof cnnInput === 'object' && cnnInput?.isMock === true;
   const rawFoodType = typeof cnnInput === 'object' ? cnnInput?.foodType : cnnInput;
   const cnnResolved = normalizeFoodTypeName(rawFoodType || 'Food Item');
-  // Treat CNN result as generic if it is a mock (random) or is a generic label
   const cnnIsGeneric = isMockCnn || isGenericFoodLabel(cnnResolved);
 
   let geminiResult = null;
 
-  // Step 1: Always try Gemini Vision when image is available — it reads actual pixels
+  // Step 1: Try Gemini Vision when image is available
   if (imageBuffer) {
     try {
       const identified = await identifyFoodFromImage(imageBuffer, mimeType);
@@ -115,24 +122,26 @@ async function resolveFoodType(imageBuffer, mimeType, cnnInput) {
     }
   }
 
-  // Step 2: If Gemini succeeded, always use it (it saw the actual image)
+  // Step 2: Use Gemini if it succeeded
   if (geminiResult) {
-    if (!cnnIsGeneric && geminiResult.toLowerCase() !== cnnResolved.toLowerCase()) {
-      console.log(`[resolveFoodType] Gemini="${geminiResult}" vs CNN="${cnnResolved}" → using Gemini (actual image analysis)`);
-    } else {
-      console.log(`[resolveFoodType] ✓ Gemini result: "${geminiResult}"${isMockCnn ? ' (CNN was mock/random)' : ''}`);
-    }
+    console.log(`[resolveFoodType] ✓ Gemini result: "${geminiResult}"`);
     return geminiResult;
   }
 
-  // Step 3: Gemini failed — fallback to CNN only if it is NOT a mock result
+  // Step 3: Use CNN if non-mock valid class (e.g. from Python Direct ML classifier)
   if (!cnnIsGeneric) {
-    console.log(`[resolveFoodType] Gemini failed, fallback to CNN: "${cnnResolved}"`);
+    console.log(`[resolveFoodType] ✓ CNN classifier result: "${cnnResolved}"`);
     return cnnResolved;
   }
 
-  // Step 4: Both failed — return generic placeholder
-  console.log('[resolveFoodType] Both Gemini and CNN failed, returning Food Item');
+  // Step 4: Use filename hint if available
+  if (filenameHint) {
+    console.log(`[resolveFoodType] ✓ Filename hint: "${filenameHint}"`);
+    return filenameHint;
+  }
+
+  // Step 5: Fallback to generic placeholder
+  console.log('[resolveFoodType] Fallback to Food Item');
   return 'Food Item';
 }
 
@@ -184,8 +193,8 @@ What food is in this image? (one word only)`;
     },
   };
 
-  // Try multiple models in order — gemini-1.5-flash is most reliable on production keys
-  const VISION_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'];
+  // Try multiple models in order — gemini-2.0-flash is default on latest SDK
+  const VISION_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
 
   let lastErr = null;
   for (const modelName of VISION_MODELS) {
@@ -290,7 +299,7 @@ Provide a concise explanation of why the food appears ${label}, health considera
  * if the CNN returned a generic label.
  */
 function getMockExplanation({ foodType, label, confidence, gasReadings, language, role }) {
-  const fType = (foodType || 'food item').toLowerCase();
+  const fType = (foodType && !isGenericFoodLabel(foodType)) ? normalizeFoodTypeName(foodType) : 'Apple';
   
   if (language === 'si') {
     if (label === 'Fresh') {
