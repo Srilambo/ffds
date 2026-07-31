@@ -48,7 +48,7 @@ async function createScan(req, res, next) {
     const imageUrl = saveImage(buffer, mimetype);
 
     // Always resolve food name from image (Gemini vision + CNN + filename hint + color heuristic)
-    const resolvedFoodType = (await geminiClient.resolveFoodType(buffer, mimetype, cnnResult, originalname)) || cnnResult.foodType || 'Apple';
+    const resolvedFoodType = (await geminiClient.resolveFoodType(buffer, mimetype, cnnResult, originalname)) || cnnResult.foodType || 'Food Item';
 
     // Calculate expiration date based on freshness label
     const now = new Date();
