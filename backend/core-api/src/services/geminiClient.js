@@ -94,9 +94,18 @@ function extractFoodTypeFromFilename(filename) {
   if (lower.includes('potato')) return 'Potato';
   if (lower.includes('tomato')) return 'Tomato';
 
-  // Extract readable name from file name if not a generic camera string like IMG_1234
-  const cleanName = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/[0-9]/g, '').trim();
-  if (cleanName && cleanName.length > 2 && !/^(img|dsc|screenshot|photo|image|file|upload)/i.test(cleanName)) {
+  // Clean up symbols, parentheses, numbers, and extra spaces
+  const cleanName = filename
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[()[\]{}\-_=+\/\\|:;,"'.]/g, ' ')
+    .replace(/[0-9]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Exclude generic camera/web image prefixes like IMG, DSC, OIP, Screenshot, Download, etc.
+  const isGenericPrefix = /^(img|dsc|oip|screenshot|photo|image|file|upload|download|temp|unknown|blob|captured|frame|asset|picture|pic|media|attachment)$/i.test(cleanName);
+
+  if (cleanName && cleanName.length > 2 && !isGenericPrefix) {
     return cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
   }
 
