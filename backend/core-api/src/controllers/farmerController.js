@@ -96,7 +96,7 @@ async function batchScan(req, res, next) {
     let freshCount = 0, borderlineCount = 0, spoiledCount = 0;
 
     for (const file of images) {
-      const { buffer, mimetype } = file;
+      const { buffer, mimetype, originalname } = file;
       
       // Run through CNN
       const cnnResult = await cnnClient.classifyImage(buffer, mimetype);
@@ -104,7 +104,7 @@ async function batchScan(req, res, next) {
       const imageUrl = saveImage(buffer, mimetype);
 
       // Resolve food type — pass full cnnResult object so isMock flag is preserved
-      const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult);
+      const resolvedFoodType = await geminiClient.resolveFoodType(buffer, mimetype, cnnResult, originalname);
 
       // Get explanation
       let explanation = '';

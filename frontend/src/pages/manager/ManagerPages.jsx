@@ -7,4 +7,5 @@ export { ManagerChatbot } from './widgets/ManagerChatbot';
 export { BatchScan } from './widgets/BatchScan';
 export { ManagerShopProfile } from './widgets/ManagerShopProfile';
 export { ManagerOrders } from './widgets/ManagerOrders';
+export { ManagerDriversWidget } from './widgets/ManagerDriversWidget';
 export { ManagerSettings } from './widgets/ManagerSettings';

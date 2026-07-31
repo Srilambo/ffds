@@ -711,6 +711,7 @@ export function ConsumerShoppingList() {
   const [showVisualCatalog, setShowVisualCatalog] = useState(false);
   const [visualCatFilter, setVisualCatFilter] = useState('all');
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [nearbyShops, setNearbyShops] = useState([]);
   const [selectedShop, setSelectedShop] = useState(null);
   const [loadingShops, setLoadingShops] = useState(false);
@@ -847,18 +848,30 @@ export function ConsumerShoppingList() {
     return DEFAULT_DEMO_BILLS;
   });
 
-  const handleSubmitReview = (e) => {
+  const handleSubmitReview = async (e) => {
     e.preventDefault();
+    const dName = activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName || '';
+    const dId = activeChecklistOrder?.driverId?._id || activeChecklistOrder?.driverId || checklistOrderStatus?.driverId;
+
     const reviewData = {
-      orderId: activeChecklistOrder?._id || 'INV-323809',
-      riderName: 'Nimal Perera (#402)',
+      orderId: activeChecklistOrder?._id,
+      shopId: activeSelectedShop?._id || activeChecklistOrder?.shopId?._id || activeChecklistOrder?.shopId,
+      driverId: dId,
+      driverName: dName,
+      riderName: dName,
       riderRating,
       storeRating,
-      reviewText: reviewText.trim() || 'Great delivery service and super fresh produce!',
-      tags: selectedReviewTags,
+      freshnessRating: storeRating,
+      comment: reviewText.trim() || (selectedReviewTags.length > 0 ? selectedReviewTags.join(', ') : 'Great delivery service and super fresh produce!'),
       createdAt: new Date().toISOString(),
     };
     setSubmittedReview(reviewData);
+
+    try {
+      await api.post('/reviews', reviewData);
+    } catch (err) {
+      console.warn('Review save error:', err.message);
+    }
 
     // Save to billHistory
     setBillHistory(prev => prev.map(bill => {
@@ -874,7 +887,7 @@ export function ConsumerShoppingList() {
 
     setShowReviewModal(false);
     handleDismissOrderTracking();
-    setSyncMsg('⭐ Thank you! Your delivery & produce review has been submitted successfully.');
+    setSyncMsg('⭐ Thank you! Your delivery & produce review has been saved to store & rider records.');
     setTimeout(() => setSyncMsg(''), 5000);
   };
 
@@ -936,46 +949,83 @@ export function ConsumerShoppingList() {
     if (!activeChecklistOrder) return;
     const shopLat = selectedShop?.coords?.[0] || 9.7850;
     const shopLng = selectedShop?.coords?.[1] || 80.0280;
-    const userLat = user?.location?.coordinates?.[1] || 9.7831;
-    const userLng = user?.location?.coordinates?.[0] || 80.0255;
 
     setDeliveryRiderPos([shopLat, shopLng]);
-
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 0.1;
-      if (progress >= 1) {
-        progress = 1;
-        setChecklistOrderStatus({ status: 'delivered' });
-        setShowAutoFridgePrompt(true);
-        clearInterval(interval);
-      } else if (progress > 0.6) {
-        setChecklistOrderStatus({ status: 'on_the_way' });
-      } else if (progress > 0.3) {
-        setChecklistOrderStatus({ status: 'preparing' });
-      } else {
-        setChecklistOrderStatus({ status: 'accepted' });
-      }
-
-      const curLat = shopLat + (userLat - shopLat) * progress;
-      const curLng = shopLng + (userLng - shopLng) * progress;
-      setDeliveryRiderPos([curLat, curLng]);
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [activeChecklistOrder]);
+  }, [activeChecklistOrder, selectedShop]);
 
   useEffect(() => {
-    if (!socket || !activeChecklistOrder) return;
+    if (!socket || !activeChecklistOrder?._id) return;
+
+    // Join real-time socket rooms for live order updates
+    socket.emit('join_order_room', activeChecklistOrder._id);
     socket.emit('join_order', activeChecklistOrder._id);
-    socket.on('order_status_update', (update) => {
-      if (update.orderId === activeChecklistOrder._id) setChecklistOrderStatus(update);
-    });
+
+    const handleStatusUpdate = (update) => {
+      const targetId = activeChecklistOrder._id?.toString() || activeChecklistOrder.id?.toString();
+      const eventId = update.orderId?.toString();
+      if (!targetId || !eventId || targetId === eventId) {
+        setChecklistOrderStatus((prev) => ({
+          ...prev,
+          status: update.status,
+          driverName: update.driverName || prev?.driverName,
+          driverPhone: update.driverPhone || prev?.driverPhone,
+          driverVehicle: update.driverVehicle || prev?.driverVehicle,
+        }));
+
+        // Apply real driverId data from socket event
+        if (update.driverId) {
+          setActiveChecklistOrder((prev) => ({
+            ...prev,
+            driverId: update.driverId,
+            status: update.status,
+          }));
+        }
+
+        if (update.status === 'delivered') {
+          setShowAutoFridgePrompt(true);
+          setSyncMsg('🎉 Order delivered! Delivery completed successfully.');
+        } else {
+          setSyncMsg(`🚴 Order Status Updated: ${(update.status || '').replace(/_/g, ' ').toUpperCase()}`);
+        }
+        setTimeout(() => setSyncMsg(''), 4000);
+      }
+    };
+
+    socket.on('order_status_update', handleStatusUpdate);
+
     return () => {
-      socket.off('order_status_update');
+      socket.off('order_status_update', handleStatusUpdate);
       socket.emit('leave_order', activeChecklistOrder._id);
     };
   }, [socket, activeChecklistOrder]);
+
+  // ─── Poll backend every 5s to refresh order status & driverId ───
+  useEffect(() => {
+    const rawId = String(activeChecklistOrder?._id || '');
+    if (!rawId || !rawId.match(/^[a-f0-9]{24}$/i)) return;
+
+    const pollOrder = async () => {
+      try {
+        const { data } = await api.get(`/orders/${rawId}`);
+        if (data) {
+          if (data.driverId || data.status !== activeChecklistOrder.status) {
+            setActiveChecklistOrder((prev) => ({
+              ...prev,
+              ...data,
+              driverId: data.driverId || prev?.driverId,
+            }));
+          }
+          if (data.status && data.status !== checklistOrderStatus?.status) {
+            setChecklistOrderStatus((prev) => ({ ...prev, status: data.status }));
+          }
+        }
+      } catch { /* silently ignore polling errors */ }
+    };
+
+    const interval = setInterval(pollOrder, 5000);
+    pollOrder(); // immediate first poll
+    return () => clearInterval(interval);
+  }, [activeChecklistOrder?._id]);
 
   const toggleItem = (id) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i)));
@@ -1085,11 +1135,24 @@ export function ConsumerShoppingList() {
   const clearPurchasedItems = () => {
     const purchasedCount = items.filter((i) => i.checked).length;
     if (purchasedCount === 0) return;
-    if (window.confirm(`Are you sure you want to remove ${purchasedCount} purchased item(s)?`)) {
+    if (window.confirm(`Are you sure you want to remove ${purchasedCount} selected item(s) from checklist?`)) {
       setItems((prev) => prev.filter((i) => !i.checked));
-      setSyncMsg(`🗑️ Cleared ${purchasedCount} purchased item(s).`);
+      setSyncMsg(`🗑️ Cleared ${purchasedCount} selected item(s).`);
       setTimeout(() => setSyncMsg(''), 3000);
     }
+  };
+
+  const handleOrderCheckedItems = () => {
+    const checked = items.filter((i) => i.checked);
+    if (checked.length === 0) {
+      alert('Please check (✓) the items you want to order first.');
+      return;
+    }
+    // Open the online order modal; the submit handler already uses checked items as order items
+    setShowOrderModal(true);
+    const uLat = userCustomLocation?.lat || selectedPostalLocation?.coords?.[0] || 9.7833;
+    const uLng = userCustomLocation?.lng || selectedPostalLocation?.coords?.[1] || 80.0167;
+    fetchBackendShops(uLat, uLng);
   };
 
   const copyListToClipboard = () => {
@@ -1132,13 +1195,21 @@ export function ConsumerShoppingList() {
     setTransferring(true);
     try {
       for (const item of checkedItems) {
-        await api.post('/inventory', { foodName: item.name, category: item.category === 'Produce' ? 'fruit' : 'other', quantity: item.quantityNum || 1, unit: item.unit || 'pcs', location: 'fridge', expiryDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0] });
+        await api.post('/inventory', {
+          foodName: item.name,
+          category: item.category === 'Produce' ? 'fruit' : item.category === 'Dairy' ? 'dairy' : 'other',
+          quantity: item.quantityNum || 1,
+          unit: item.unit || 'pcs',
+          location: 'fridge',
+          purchaseDate: new Date().toISOString(),
+          expiryDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+        });
       }
       setItems((prev) => prev.filter((i) => !i.checked));
       setSyncMsg(`🎉 Transferred ${checkedItems.length} purchased item(s) to your Fridge Inventory!`);
       setTimeout(() => setSyncMsg(''), 4000);
-    } catch {
-      alert('Failed to transfer items to fridge.');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to transfer items to fridge.');
     } finally {
       setTransferring(false);
     }
@@ -1162,14 +1233,8 @@ export function ConsumerShoppingList() {
         };
       }) : [];
 
-      const combined = [...merged];
-      generated5.forEach((fb) => {
-        if (!combined.some((s) => s.shopName === fb.shopName)) {
-          const fDist = (Math.sqrt(Math.pow(fb.coords[0] - lat, 2) + Math.pow(fb.coords[1] - lng, 2)) * 111).toFixed(1);
-          combined.push({ ...fb, distanceKm: fDist });
-        }
-      });
-
+      // If real backend shops were returned, use them directly; otherwise fallback to mock shops
+      const combined = merged.length > 0 ? [...merged] : [...generated5];
       combined.sort((a, b) => parseFloat(a.distanceKm || 0) - parseFloat(b.distanceKm || 0));
       setNearbyShops(combined);
       if (combined.length > 0) setSelectedShop(combined[0]);
@@ -1230,8 +1295,12 @@ export function ConsumerShoppingList() {
   };
 
   const handleSubmitChecklistOrder = async () => {
+    const checkedItems    = items.filter((i) => i.checked);
     const uncompletedItems = items.filter((i) => !i.checked);
-    const orderItemsList = uncompletedItems.length > 0 ? uncompletedItems : items;
+    // Priority: checked items → unchecked items → all items
+    const orderItemsList = checkedItems.length > 0 ? checkedItems
+                         : uncompletedItems.length > 0 ? uncompletedItems
+                         : items;
     if (!selectedShop || orderItemsList.length === 0) {
       alert('Please select a nearby store and add items.');
       return;
@@ -1246,10 +1315,38 @@ export function ConsumerShoppingList() {
       const subtotal = orderItemsList.reduce((sum, i) => sum + ((i.estimatedPrice || 2.5) * (i.quantityNum || 1)), 0);
       const deliveryFee = subtotal > 20 ? 0.00 : (selectedShop.deliveryFee || 1.50);
       const grandTotal = subtotal + deliveryFee + 0.50;
-      const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+      // Save order to MongoDB backend
+      let serverOrder = null;
+      try {
+        const { data } = await api.post('/orders', {
+          shopId: selectedShop._id || selectedShop.id,
+          shopName: selectedShop.shopName,
+          items: orderItemsList.map((i) => ({
+            name: i.name,
+            qty: i.qty,
+            category: i.category || 'Produce',
+            price: ((i.estimatedPrice || 2.5) * (i.quantityNum || 1)),
+            emoji: i.emoji || '🛒',
+          })),
+          paymentMethod,
+          consumerNote: 'Smart Shopping Checklist Order',
+          deliveryAddress: selectedShop.address || 'Consumer Pinpoint Location',
+          deliveryLocation: {
+            lat: userCustomLocation?.lat || selectedPostalLocation?.coords?.[0] || 9.7833,
+            lng: userCustomLocation?.lng || selectedPostalLocation?.coords?.[1] || 80.0167,
+          },
+        });
+        serverOrder = data;
+      } catch (err) {
+        console.warn('Backend order save warning:', err);
+      }
+
+      const orderId = serverOrder?._id || ('INV-' + Date.now().toString().slice(-6));
+      const otpCode = serverOrder?.deliveryOtp || Math.floor(1000 + Math.random() * 9000).toString();
 
       const newBill = {
-        id: 'INV-' + Date.now().toString().slice(-6),
+        id: orderId,
         date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
         shopName: selectedShop.shopName,
         shopAddress: selectedShop.address || 'Proximity Store',
@@ -1268,7 +1365,7 @@ export function ConsumerShoppingList() {
       try { localStorage.setItem('ffds_bill_history', JSON.stringify(updatedHistory)); } catch { }
 
       setActiveChecklistOrder({
-        _id: newBill.id,
+        _id: orderId,
         shopName: selectedShop.shopName,
         totalAmount: grandTotal,
         paymentMethod,
@@ -1276,9 +1373,9 @@ export function ConsumerShoppingList() {
         deliveryOtp: otpCode,
       });
 
-      setChecklistOrderStatus({ status: 'accepted' });
+      setChecklistOrderStatus({ status: 'pending' });
       setShowOrderModal(false);
-      setSyncMsg(`🎉 Order placed! Delivery Security OTP: ${otpCode}`);
+      setSyncMsg(`🎉 Order placed & sent to store! Delivery Security OTP: ${otpCode}`);
       setTimeout(() => setSyncMsg(''), 6000);
     } catch {
       alert('Failed to place order');
@@ -1318,7 +1415,12 @@ export function ConsumerShoppingList() {
     return p.category === visualCatFilter;
   });
 
-  const activeOrderItems = items.filter((i) => !i.checked).length > 0 ? items.filter((i) => !i.checked) : items;
+  // Priority: checked items → unchecked items → all items (must match handleSubmitChecklistOrder)
+  const _checkedItems     = items.filter((i) => i.checked);
+  const _uncompletedItems = items.filter((i) => !i.checked);
+  const activeOrderItems  = _checkedItems.length > 0 ? _checkedItems
+                           : _uncompletedItems.length > 0 ? _uncompletedItems
+                           : items;
   const orderSubtotal = activeOrderItems.reduce((sum, i) => sum + (i.estimatedPrice || 2.50) * (i.quantityNum || 1), 0);
   const orderDeliveryFee = orderSubtotal > 20 ? 0.00 : (selectedShop?.deliveryFee || 1.50);
   const orderEcoFee = 0.50;
@@ -1338,7 +1440,13 @@ export function ConsumerShoppingList() {
     .filter((s) => parseFloat(s.distanceKm) <= 35)
     .sort((a, b) => parseFloat(a.distanceKm) - parseFloat(b.distanceKm));
 
-  const activeSelectedShop = selectedShop || currentStoresList[0] || allStoresList[0];
+  const filteredStoresList = currentStoresList.filter((s) =>
+    !storeSearchQuery.trim() ||
+    s.shopName?.toLowerCase().includes(storeSearchQuery.toLowerCase()) ||
+    s.address?.toLowerCase().includes(storeSearchQuery.toLowerCase())
+  );
+
+  const activeSelectedShop = selectedShop || filteredStoresList[0] || currentStoresList[0] || allStoresList[0];
 
   return (
     <div className="space-y-6 fade-up">
@@ -1372,10 +1480,19 @@ export function ConsumerShoppingList() {
         <div className="glass border border-brand-500/40 bg-brand-500/10 p-5 rounded-2xl space-y-4 animate-fade-up shadow-2xl">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
             <div className="flex items-center gap-3">
-              <span className="text-3xl animate-bounce">🚴</span>
+              {(() => {
+                const st = checklistOrderStatus.status || 'pending';
+                let icon = '⌛';
+                let animClass = 'animate-spin text-cyan-300';
+                if (st === 'delivered') { icon = '🎉'; animClass = 'animate-bounce text-emerald-400'; }
+                else if (['assigned', 'out_for_delivery', 'on_the_way'].includes(st)) { icon = '🚴'; animClass = 'animate-bounce text-amber-300'; }
+                else if (st === 'preparing') { icon = '📦'; animClass = 'animate-bounce text-purple-300'; }
+                else if (['confirmed', 'accepted'].includes(st)) { icon = '🏪'; animClass = 'animate-pulse text-brand-300'; }
+                return <span className={`text-3xl ${animClass}`}>{icon}</span>;
+              })()}
               <div>
                 <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                  Live Order Delivery Tracking: <span className="uppercase text-brand-300 font-extrabold">{checklistOrderStatus.status.replace('_', ' ')}</span>
+                  Live Order Delivery Tracking: <span className="uppercase text-brand-300 font-extrabold">{(checklistOrderStatus.status || 'pending').replace(/_/g, ' ')}</span>
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
                   Order #{activeChecklistOrder._id.slice(-6)} · Store: <span className="text-white font-semibold">{activeSelectedShop?.shopName || 'Proximity Store'}</span> · Est: 10–15 min
@@ -1394,23 +1511,41 @@ export function ConsumerShoppingList() {
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-2 py-1 text-center text-[11px] font-bold">
-            <div className={`p-2 rounded-xl border ${checklistOrderStatus.status === 'pending' || checklistOrderStatus.status === 'accepted' || checklistOrderStatus.status === 'preparing' || checklistOrderStatus.status === 'on_the_way' || checklistOrderStatus.status === 'delivered' ? 'bg-brand-500/20 border-brand-500 text-brand-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              1. Placed ⌛
-            </div>
-            <div className={`p-2 rounded-xl border ${checklistOrderStatus.status === 'accepted' || checklistOrderStatus.status === 'preparing' || checklistOrderStatus.status === 'on_the_way' || checklistOrderStatus.status === 'delivered' ? 'bg-brand-500/20 border-brand-500 text-brand-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              2. Accepted 🏪
-            </div>
-            <div className={`p-2 rounded-xl border ${checklistOrderStatus.status === 'preparing' || checklistOrderStatus.status === 'on_the_way' || checklistOrderStatus.status === 'delivered' ? 'bg-brand-500/20 border-brand-500 text-brand-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              3. Packing 📦
-            </div>
-            <div className={`p-2 rounded-xl border ${checklistOrderStatus.status === 'on_the_way' || checklistOrderStatus.status === 'delivered' ? 'bg-brand-500/20 border-brand-500 text-brand-300 animate-pulse' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              4. On Way 🚴
-            </div>
-            <div className={`p-2 rounded-xl border ${checklistOrderStatus.status === 'delivered' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300' : 'bg-white/5 border-white/10 text-slate-500'}`}>
-              5. Delivered 🎉
-            </div>
-          </div>
+          {/* 5-Stage Stepper Pills */}
+          {(() => {
+            const st = checklistOrderStatus.status || 'pending';
+            let curStage = 1;
+            if (['confirmed', 'accepted'].includes(st)) curStage = 2;
+            else if (st === 'preparing') curStage = 3;
+            else if (['assigned', 'out_for_delivery', 'on_the_way'].includes(st)) curStage = 4;
+            else if (st === 'delivered') curStage = 5;
+
+            const stages = [
+              { idx: 1, label: '1. Placed', icon: '⌛' },
+              { idx: 2, label: '2. Accepted', icon: '🏪' },
+              { idx: 3, label: '3. Packing', icon: '📦' },
+              { idx: 4, label: '4. On Way', icon: '🚴' },
+              { idx: 5, label: '5. Delivered', icon: '🎉' },
+            ];
+
+            return (
+              <div className="grid grid-cols-5 gap-2 py-1 text-center text-[11px] font-bold">
+                {stages.map((stage) => {
+                  const isCompleted = stage.idx < curStage;
+                  const isActive = stage.idx === curStage;
+                  let cls = 'bg-white/5 border-white/10 text-slate-500';
+                  if (isCompleted) cls = 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold';
+                  else if (isActive) cls = 'bg-amber-500/25 border-amber-400 text-amber-200 font-extrabold shadow-glow animate-pulse scale-[1.02]';
+
+                  return (
+                    <div key={stage.idx} className={`p-2 rounded-xl border transition-all duration-300 ${cls}`}>
+                      {isCompleted ? `✓ ${stage.label}` : `${stage.label} ${stage.icon}`}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           <div className="rounded-xl overflow-hidden border border-white/15 shadow-inner h-60 w-full relative">
             <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }}>
@@ -1421,9 +1556,9 @@ export function ConsumerShoppingList() {
               <Marker position={activeSelectedShop?.coords || [userLat + 0.01, userLng + 0.01]} icon={storePinIcon}>
                 <Popup><strong>🏪 {activeSelectedShop?.shopName}</strong><br />Store Dispatch Point</Popup>
               </Marker>
-              {deliveryRiderPos && (
+              {['assigned', 'out_for_delivery', 'on_the_way', 'delivered'].includes(checklistOrderStatus?.status) && (activeChecklistOrder?.driverId || checklistOrderStatus?.driverName) && deliveryRiderPos && (
                 <Marker position={deliveryRiderPos} icon={riderPinIcon}>
-                  <Popup><strong>🚴 Rider: Nimal Perera (#402)</strong><br />Status: {checklistOrderStatus.status}</Popup>
+                  <Popup><strong>🚴 Rider: {activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName || 'Assigned Driver'}</strong><br />Status: {checklistOrderStatus.status}</Popup>
                 </Marker>
               )}
             </MapContainer>
@@ -1437,8 +1572,20 @@ export function ConsumerShoppingList() {
             <div className="flex items-center gap-3">
               <span className="text-2xl">👤</span>
               <div>
-                <p className="font-bold text-white">Rider: Nimal Perera (Rider #402)</p>
-                <p className="text-[11px] text-slate-400">Vehicle: E-Bike 🏍️ · Speed: 24 km/h</p>
+                {activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName ? (
+                  <>
+                    <p className="font-bold text-white">Rider: <span className="text-emerald-300">{activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName}</span></p>
+                    <p className="text-[11px] text-slate-400">
+                      Vehicle: <span className="text-amber-400 font-semibold">{activeChecklistOrder?.driverId?.vehicleType || checklistOrderStatus?.driverVehicle || 'Delivery'}</span>
+                      {activeChecklistOrder?.driverId?.licensePlate ? ` · ${activeChecklistOrder.driverId.licensePlate}` : ''}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-amber-300 italic">⏳ Awaiting Driver Assignment</p>
+                    <p className="text-[11px] text-slate-400">Manager is reviewing your order</p>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1451,13 +1598,21 @@ export function ConsumerShoppingList() {
                   <span>⭐</span> {submittedReview ? 'View / Edit Review' : 'Rate & Review Order'}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => alert('📞 Calling Delivery Rider Nimal Perera (+94 77 123 4567)...')}
-                className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold flex items-center gap-2 cursor-pointer shadow-glow"
-              >
-                📞 Call Rider (+94 77 123 4567)
-              </button>
+              {(activeChecklistOrder?.driverId?.phone || checklistOrderStatus?.driverPhone) ? (
+                <a
+                  href={`tel:${activeChecklistOrder?.driverId?.phone || checklistOrderStatus?.driverPhone}`}
+                  className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold flex items-center gap-2 cursor-pointer shadow-glow"
+                >
+                  📞 Call Rider ({activeChecklistOrder?.driverId?.phone || checklistOrderStatus?.driverPhone})
+                </a>
+              ) : activeSelectedShop?.phone ? (
+                <a
+                  href={`tel:${activeSelectedShop.phone}`}
+                  className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-extrabold flex items-center gap-2 cursor-pointer shadow-glow"
+                >
+                  📞 Call Store ({activeSelectedShop.phone})
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -1505,15 +1660,17 @@ export function ConsumerShoppingList() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 italic bg-white/5 p-2.5 rounded-lg border border-white/10">
-                    "{submittedReview.reviewText}"
+                    "{submittedReview.comment || submittedReview.reviewText || 'Produce delivery review'}"
                   </p>
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {submittedReview.tags.map((tag, idx) => (
-                      <span key={idx} className="text-[10px] px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                  {Array.isArray(submittedReview.tags) && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {submittedReview.tags.map((tag, idx) => (
+                        <span key={idx} className="text-[10px] px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1716,6 +1873,41 @@ export function ConsumerShoppingList() {
         </div>
       </div>
 
+      {/* ─── Floating Action Bar for Checked Items ─── */}
+      {checkedCount > 0 && (
+        <div className="sticky bottom-4 z-40 mx-2">
+          <div className="glass rounded-2xl border border-emerald-500/30 bg-slate-900/95 backdrop-blur-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xl shadow-emerald-900/30">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-base">
+                ✅
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">{checkedCount} item{checkedCount > 1 ? 's' : ''} selected</p>
+                <p className="text-emerald-400 text-xs font-medium">
+                  Est. ${items.filter(i => i.checked).reduce((s, i) => s + (i.estimatedPrice || 2.5) * (i.quantityNum || 1), 0).toFixed(2)} · Ready to order or clear
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2.5 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={clearPurchasedItems}
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-bold border border-red-500/30 transition-all"
+              >
+                🗑️ Clear Selected
+              </button>
+              <button
+                type="button"
+                onClick={handleOrderCheckedItems}
+                className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-all shadow-glow"
+              >
+                📦 Add to Online Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="glass rounded-2xl p-4 space-y-2.5 border border-white/10">
         {filteredItems.length === 0 ? (
           <div className="py-12 text-center text-slate-500 space-y-2"><span className="text-4xl">🛒</span><p className="text-white font-bold text-sm">No checklist items match this view</p></div>
@@ -1846,7 +2038,7 @@ export function ConsumerShoppingList() {
       </div>
 
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-up">
+        <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4 bg-black/75 backdrop-blur-md animate-fade-up">
           <div className="glass rounded-2xl border border-white/15 w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
@@ -1865,232 +2057,292 @@ export function ConsumerShoppingList() {
       )}
 
       {showOrderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-up">
-          <div className="glass rounded-2xl border border-white/15 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="fixed inset-0 z-[1000] bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-3 sm:p-6 pt-16 sm:pt-20 overflow-y-auto animate-fade-up">
+          <div className="glass rounded-3xl border border-white/20 w-full max-w-6xl xl:max-w-7xl p-6 sm:p-8 space-y-6 shadow-2xl bg-slate-900/95 relative mb-12">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-                  <span>🛒</span> Online Order & Store Selector
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5">
+                  <span className="text-2xl">🛒</span> Online Order & Store Selector
                 </h2>
-                <p className="text-xs text-slate-400">Map matched 5 top proximity stores, itemized money breakdown & live delivery.</p>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">Map matched top proximity stores, itemized money breakdown & live delivery dispatch.</p>
               </div>
-              <button onClick={() => setShowOrderModal(false)} className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 text-sm">✕</button>
+              <button
+                onClick={() => setShowOrderModal(false)}
+                className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/90 p-3 rounded-xl border border-brand-500/40">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-brand-300 font-extrabold flex items-center gap-1">📍 Delivery Region:</span>
-                <span className="text-white font-bold">{selectedPostalLocation.name} ({selectedPostalLocation.district})</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedPostalLocation.code}
-                  onChange={(e) => {
-                    const match = SRI_LANKA_POSTAL_CODES.find((p) => p.code === e.target.value);
-                    if (match) handleSelectPostalCity(match);
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-brand-500/50 text-brand-300 font-bold text-xs cursor-pointer shadow-glow"
-                >
-                  <option value="40130">📍 Jaffna - Tellippalai (40130)</option>
-                  <option value="40075">📍 Jaffna - Chunnakam (40075)</option>
-                  <option value="40000">📍 Jaffna - Main Town (40000)</option>
-                  <option value="40060">📍 Jaffna - Kokkuvil (40060)</option>
-                  <option value="40062">📍 Jaffna - Kondavil (40062)</option>
-                  <option value="40200">📍 Jaffna - Manipay (40200)</option>
-                  <option value="40600">📍 Jaffna - Point Pedro (40600)</option>
-                  <option value="43000">📍 Kilinochchi Town (43000)</option>
-                  <option value="00100">📍 Colombo Main City (00100)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <span>📍</span> Proximity Stores Surrounding {selectedPostalLocation.name} ({currentStoresList.length} Stores)
-                </span>
-                <span className="text-[11px] text-cyan-300 font-normal">👇 Tap map to mark exact house pin</span>
-              </span>
-              <div className="rounded-xl overflow-hidden border border-white/15 h-56 w-full relative">
-                <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }} tap={false}>
-                  <FlyToLocation center={[userLat, userLng]} />
-                  <MapEventsHandler onLocationSelect={handleMapPinClick} />
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                  <Marker position={[userLat, userLng]} icon={userPinIcon}>
-                    <Popup>
-                      <strong>📍 Your Marked Home Location</strong><br />
-                      {userLat.toFixed(4)}, {userLng.toFixed(4)}
-                    </Popup>
-                  </Marker>
-                  {currentStoresList.map((shop) => (
-                    <Marker key={shop._id} position={shop.coords || [userLat, userLng]} icon={storePinIcon} eventHandlers={{ click: () => setSelectedShop(shop) }}>
-                      <Popup>
-                        <strong>🏪 {shop.shopName}</strong><br />
-                        {shop.distanceKm} km away · {shop.deliveryTimeMinutes}<br />
-                        Fee: ${shop.deliveryFee === 0 ? 'Free' : shop.deliveryFee.toFixed(2)}
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-                <div className="absolute bottom-2 left-2 z-[400] glass px-2.5 py-1 rounded-lg text-[10px] font-bold text-cyan-300 flex items-center gap-1">
-                  <span>📍</span> Tap anywhere on map to move home pin
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Store ({currentStoresList.length} Proximity Stores)</span>
-              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                {currentStoresList.map((shop) => {
-                  const isSelected = activeSelectedShop?._id === shop._id;
-                  return (
-                    <div
-                      key={shop._id}
-                      onClick={() => setSelectedShop(shop)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">🏪</span>
-                        <div>
-                          <p className="font-bold text-xs flex items-center gap-1.5">
-                            {shop.shopName}
-                            {shop.isVerified && <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">✓ Verified</span>}
-                          </p>
-                          <p className="text-[11px] text-slate-400">{shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-bold text-brand-300 block">{shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}</span>
-                        <span className="text-[10px] text-slate-400 block">{shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="glass p-4 rounded-xl border border-white/10 space-y-3 bg-white/5">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                <span>💰 Product & Order Money Breakdown</span>
-                <span className="text-brand-300 font-mono">{activeOrderItems.length} items</span>
-              </span>
-              <div className="space-y-1.5 max-h-28 overflow-y-auto text-xs text-slate-300 pr-1">
-                {activeOrderItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between border-b border-white/5 pb-1">
-                    <span className="flex items-center gap-1.5">
-                      <span>{item.emoji}</span> {item.name} <span className="text-slate-400 font-mono">({item.qty})</span>
-                    </span>
-                    <span className="font-mono text-emerald-400 font-bold">${((item.estimatedPrice || 2.5) * (item.quantityNum || 1)).toFixed(2)}</span>
+            {/* Spacious 2-Column Responsive Dashboard Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Delivery Region, Map & Proximity Stores */}
+              <div className="lg:col-span-7 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/90 p-4 rounded-2xl border border-brand-500/40 shadow-md">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm">
+                    <span className="text-brand-300 font-extrabold flex items-center gap-1.5">📍 Delivery Region:</span>
+                    <span className="text-white font-bold">{selectedPostalLocation.name} ({selectedPostalLocation.district})</span>
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedPostalLocation.code}
+                      onChange={(e) => {
+                        const match = SRI_LANKA_POSTAL_CODES.find((p) => p.code === e.target.value);
+                        if (match) handleSelectPostalCity(match);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-slate-950 border border-brand-500/50 text-brand-300 font-extrabold text-xs cursor-pointer shadow-glow"
+                    >
+                      <option value="40130">📍 Jaffna - Tellippalai (40130)</option>
+                      <option value="40075">📍 Jaffna - Chunnakam (40075)</option>
+                      <option value="40000">📍 Jaffna - Main Town (40000)</option>
+                      <option value="40060">📍 Jaffna - Kokkuvil (40060)</option>
+                      <option value="40062">📍 Jaffna - Kondavil (40062)</option>
+                      <option value="40200">📍 Jaffna - Manipay (40200)</option>
+                      <option value="40600">📍 Jaffna - Point Pedro (40600)</option>
+                      <option value="43000">📍 Kilinochchi Town (43000)</option>
+                      <option value="00100">📍 Colombo Main City (00100)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span>📍</span> Proximity Map ({currentStoresList.length} Stores Available)
+                    </span>
+                    <span className="text-xs text-cyan-300 font-semibold">👇 Tap map to mark exact house pin</span>
+                  </span>
+                  <div className="rounded-2xl overflow-hidden border border-white/15 h-56 sm:h-64 w-full relative shadow-lg">
+                    <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }} tap={false}>
+                      <FlyToLocation center={[userLat, userLng]} />
+                      <MapEventsHandler onLocationSelect={handleMapPinClick} />
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                      <Marker position={[userLat, userLng]} icon={userPinIcon}>
+                        <Popup>
+                          <strong>📍 Your Marked Home Location</strong><br />
+                          {userLat.toFixed(4)}, {userLng.toFixed(4)}
+                        </Popup>
+                      </Marker>
+                      {currentStoresList.map((shop) => (
+                        <Marker key={shop._id} position={shop.coords || [userLat, userLng]} icon={storePinIcon} eventHandlers={{ click: () => setSelectedShop(shop) }}>
+                          <Popup>
+                            <strong>🏪 {shop.shopName}</strong><br />
+                            {shop.distanceKm} km away · {shop.deliveryTimeMinutes}<br />
+                            Fee: ${shop.deliveryFee === 0 ? 'Free' : shop.deliveryFee.toFixed(2)}
+                          </Popup>
+                        </Marker>
+                      ))}
+                    </MapContainer>
+                    <div className="absolute bottom-3 left-3 z-[400] glass px-3 py-1.5 rounded-xl text-xs font-bold text-cyan-300 flex items-center gap-1.5 shadow-md">
+                      <span>📍</span> Tap map to move home pin
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🏪</span> Select Store ({filteredStoresList.length} Available)
+                    </span>
+                    {/* Store Live Search Bar */}
+                    <div className="relative w-full sm:w-64">
+                      <input
+                        type="text"
+                        placeholder="🔍 Search shop name or city..."
+                        value={storeSearchQuery}
+                        onChange={(e) => setStoreSearchQuery(e.target.value)}
+                        className="input-dark w-full px-3 py-1.5 text-xs rounded-xl font-medium border border-white/15 bg-slate-950 focus:border-brand-500 transition-all pr-7"
+                      />
+                      {storeSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setStoreSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1.5 scrollbar-thin">
+                    {filteredStoresList.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400 text-xs">
+                        🔍 No stores found matching "<strong className="text-white">{storeSearchQuery}</strong>".
+                      </div>
+                    ) : (
+                      filteredStoresList.map((shop) => {
+                        const isSelected = activeSelectedShop?._id === shop._id;
+                        return (
+                          <div
+                            key={shop._id}
+                            onClick={() => setSelectedShop(shop)}
+                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow ring-1 ring-brand-500/40'
+                                : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-2xl shrink-0">🏪</span>
+                              <div className="min-w-0">
+                                <p className="font-bold text-xs sm:text-sm text-white flex items-center gap-2 truncate">
+                                  <span className="truncate">{shop.shopName}</span>
+                                  {shop.isVerified && (
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold shrink-0">
+                                      ✓ Verified
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-slate-400 truncate mt-0.5">
+                                  {shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-xs font-bold text-brand-300 block">
+                                {shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}
+                              </span>
+                              <span className="text-xs text-emerald-400 font-extrabold block mt-0.5">
+                                {shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-2 border-t border-white/10 space-y-1 text-xs font-mono">
-                <div className="flex justify-between text-slate-400">
-                  <span>Items Subtotal:</span>
-                  <span className="text-white">${orderSubtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Delivery Fee:</span>
-                  <span className="text-white">{orderDeliveryFee === 0 ? 'FREE' : `$${orderDeliveryFee.toFixed(2)}`}</span>
-                </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Eco-Packaging & Service Fee:</span>
-                  <span className="text-white">${orderEcoFee.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-sm text-brand-300 pt-1 border-t border-white/10">
-                  <span>Grand Total (Money Due):</span>
-                  <span>${orderGrandTotal.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+              {/* Right Column: Financial Breakdown, Payment Options & Large Submit Button */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+                <div className="glass p-5 rounded-2xl border border-white/10 space-y-4 bg-white/5 shadow-md">
+                  <span className="text-xs font-extrabold text-slate-200 uppercase tracking-wider flex items-center justify-between">
+                    <span className="flex items-center gap-2">💰 Order Money Breakdown</span>
+                    <span className="text-brand-300 font-mono font-bold text-xs">{activeOrderItems.length} items</span>
+                  </span>
+                  <div className="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-300 pr-1 scrollbar-thin">
+                    {activeOrderItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="text-sm">{item.emoji}</span> <span className="truncate font-semibold">{item.name}</span> <span className="text-slate-400 font-mono text-[11px]">({item.qty})</span>
+                        </span>
+                        <span className="font-mono text-emerald-400 font-bold text-xs shrink-0">${((item.estimatedPrice || 2.5) * (item.quantityNum || 1)).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
 
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Payment Method</span>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('cash')}
-                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                    }`}
-                >
-                  💵 Cash on Delivery
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('card')}
-                  className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                    }`}
-                >
-                  💳 Credit / Debit Card
-                </button>
-              </div>
-              {paymentMethod === 'card' && (
-                <div className="glass p-3.5 rounded-xl border border-brand-500/30 bg-brand-500/5 space-y-2.5 animate-fade-up mt-2">
-                  {user?.cardDetails?.cardNumberMasked && (
-                    <div className="flex items-center justify-between text-xs text-brand-300 font-bold bg-brand-500/15 px-3 py-2 rounded-lg border border-brand-500/40">
-                      <span className="flex items-center gap-1.5">
-                        <span>💳</span> Saved Card Loaded: <strong className="text-white font-mono">{user.cardDetails.cardNumberMasked}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setCardForm({
-                          number: user.cardDetails.cardNumberMasked || '',
-                          expiry: user.cardDetails.expiryDate || '',
-                          cvv: '123'
-                        })}
-                        className="text-[10px] bg-brand-500 hover:bg-brand-400 text-slate-950 px-2.5 py-1 rounded-lg font-extrabold cursor-pointer transition-all shadow-glow"
-                      >
-                        ⚡ Auto-Fill Saved Card
-                      </button>
+                  <div className="pt-3 border-t border-white/10 space-y-1.5 text-xs font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Items Subtotal:</span>
+                      <span className="text-white font-bold">${orderSubtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Delivery Fee:</span>
+                      <span className="text-white font-bold">{orderDeliveryFee === 0 ? 'FREE' : `$${orderDeliveryFee.toFixed(2)}`}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Eco-Packaging Fee:</span>
+                      <span className="text-white font-bold">${orderEcoFee.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-extrabold text-base text-brand-300 pt-2 border-t border-white/10">
+                      <span>Grand Total:</span>
+                      <span className="text-emerald-400">${orderGrandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Payment Method</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cash')}
+                      className={`py-3.5 px-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow ring-1 ring-brand-500/40' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      💵 Cash on Delivery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('card')}
+                      className={`py-3.5 px-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow ring-1 ring-brand-500/40' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      💳 Credit / Debit Card
+                    </button>
+                  </div>
+                  {paymentMethod === 'card' && (
+                    <div className="glass p-4 rounded-2xl border border-brand-500/30 bg-brand-500/5 space-y-3 animate-fade-up mt-2">
+                      {user?.cardDetails?.cardNumberMasked && (
+                        <div className="flex items-center justify-between text-xs text-brand-300 font-bold bg-brand-500/15 px-3 py-2 rounded-xl border border-brand-500/40">
+                          <span className="flex items-center gap-1.5 truncate text-xs">
+                            <span>💳</span> <strong className="text-white font-mono">{user.cardDetails.cardNumberMasked}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCardForm({
+                              number: user.cardDetails.cardNumberMasked || '',
+                              expiry: user.cardDetails.expiryDate || '',
+                              cvv: '123'
+                            })}
+                            className="text-[10px] bg-brand-500 hover:bg-brand-400 text-slate-950 px-2.5 py-1 rounded-lg font-extrabold cursor-pointer transition-all shrink-0 shadow-glow"
+                          >
+                            ⚡ Auto-Fill
+                          </button>
+                        </div>
+                      )}
+                      <input
+                        type="text"
+                        placeholder="Card Number (4532 •••• •••• 8921)"
+                        maxLength={19}
+                        value={cardForm.number}
+                        onChange={handleModalCardNumberChange}
+                        className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          value={cardForm.expiry}
+                          onChange={handleModalCardExpiryChange}
+                          className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                        />
+                        <input
+                          type="password"
+                          placeholder="CVV (123)"
+                          maxLength={4}
+                          value={cardForm.cvv}
+                          onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
+                          className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                        />
+                      </div>
                     </div>
                   )}
-                  <input
-                    type="text"
-                    placeholder="Card Number (4532 •••• •••• 8921)"
-                    maxLength={19}
-                    value={cardForm.number}
-                    onChange={handleModalCardNumberChange}
-                    className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      placeholder="MM/YY"
-                      maxLength={5}
-                      value={cardForm.expiry}
-                      onChange={handleModalCardExpiryChange}
-                      className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-                    />
-                    <input
-                      type="password"
-                      placeholder="CVV (123)"
-                      maxLength={4}
-                      value={cardForm.cvv}
-                      onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value.replace(/\D/g, '') })}
-                      className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-                    />
-                  </div>
                 </div>
-              )}
-            </div>
 
-            <button
-              type="button"
-              onClick={handleSubmitChecklistOrder}
-              disabled={placingOrder || !selectedShop}
-              className="btn-glow w-full py-3.5 rounded-xl text-white font-extrabold text-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-glow"
-            >
-              {placingOrder ? <><span className="spinner" /> Submitting Order...</> : '🚀 Submit Order to Shop'}
-            </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitChecklistOrder}
+                  disabled={placingOrder || !selectedShop}
+                  className="btn-glow w-full py-4 rounded-2xl text-white font-black text-base flex items-center justify-center gap-2.5 disabled:opacity-50 cursor-pointer shadow-glow transition-all active:scale-98"
+                >
+                  {placingOrder ? <><span className="spinner" /> Submitting Order...</> : `🚀 Dispatch Order ($${orderGrandTotal.toFixed(2)})`}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Bill History & Receipts Modal */}
       {showBillHistoryModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4">
           <div className="glass max-w-2xl w-full p-6 rounded-2xl border border-white/20 space-y-5 relative animate-scale-in bg-slate-900 shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-white/10 pb-4 shrink-0">
               <div className="flex items-center gap-3">
@@ -2189,7 +2441,7 @@ export function ConsumerShoppingList() {
 
       {/* View Itemized Thermal Receipt Modal */}
       {viewReceipt && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[1000] bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-3 sm:p-4 pb-20 sm:pb-4">
           <div className="glass max-w-sm w-full p-6 rounded-2xl border border-white/20 space-y-4 relative animate-scale-in bg-slate-950 shadow-2xl font-mono text-xs">
             <button
               type="button"
@@ -2351,7 +2603,7 @@ export function ConsumerShoppingList() {
               {/* Rider Rating */}
               <div className="space-y-1.5 bg-white/5 p-3 rounded-xl border border-white/10">
                 <label className="block text-xs font-bold text-slate-200">
-                  🚴 Delivery Rider Rating (Nimal Perera #402):
+                  🚴 Delivery Rider Rating ({activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName || 'Your Rider'}):
                 </label>
                 <div className="flex items-center gap-2 pt-1">
                   {[1, 2, 3, 4, 5].map((star) => (

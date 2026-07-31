@@ -35,20 +35,27 @@ export function NotificationProvider({ children }) {
   const fetchNotifications = useCallback(async () => {
     if (!token) return;
     try {
-      const [notifRes, expiringRes] = await Promise.all([
+      const [notifRes, expiringRes] = await Promise.allSettled([
         api.get('/notifications'),
         api.get('/inventory/expiring'),
       ]);
-      setNotifications(notifRes.data);
-      setExpiringItems(expiringRes.data);
-      const unread = notifRes.data.filter((n) => !n.isRead).length;
-      setUnreadCount(unread);
 
-      if (preferences.pushEnabled && unread > prevUnreadRef.current) {
-        const latest = notifRes.data.find((n) => !n.isRead && n.type === 'expiry');
-        if (latest) showBrowserNotification(latest.title || 'Food Expiry Alert', latest.message);
+      if (notifRes.status === 'fulfilled') {
+        const notifData = notifRes.value.data || [];
+        setNotifications(notifData);
+        const unread = notifData.filter((n) => !n.isRead).length;
+        setUnreadCount(unread);
+
+        if (preferences.pushEnabled && unread > prevUnreadRef.current) {
+          const latest = notifData.find((n) => !n.isRead);
+          if (latest) showBrowserNotification(latest.title || 'FFDS Notification', latest.message);
+        }
+        prevUnreadRef.current = unread;
       }
-      prevUnreadRef.current = unread;
+
+      if (expiringRes.status === 'fulfilled') {
+        setExpiringItems(expiringRes.value.data || []);
+      }
     } catch {
       // API may be offline during dev
     }

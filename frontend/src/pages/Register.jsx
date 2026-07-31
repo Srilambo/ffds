@@ -7,7 +7,7 @@ import AuthLayout from '../components/AuthLayout';
 
 const ROLES = [
   { value: 'consumer', label: 'Regular User',       icon: '🏠', desc: 'Scan food & manage pantry' },
-  { value: 'manager',  label: 'Business / Producer', icon: '🏪', desc: 'Manage inventory, harvest batches & waste' },
+  { value: 'manager',  label: 'Business / Manager', icon: '🏪', desc: 'Manage store inventory & waste' },
   { value: 'admin',    label: 'Admin',               icon: '⚙️', desc: 'System access & control' },
 ];
 
@@ -17,7 +17,7 @@ export default function Register() {
   const navigate   = useNavigate();
 
   const [form, setForm] = useState({
-    name: '', email: '', password: '', role: 'consumer', language: 'en',
+    name: '', email: '', password: '', role: 'consumer', language: 'en', managerEmail: '', vehicleType: 'Bicycle',
   });
   const [error,    setError]   = useState('');
   const [loading,  setLoading] = useState(false);
@@ -38,10 +38,10 @@ export default function Register() {
       const dest =
         data.user.role === 'admin'
           ? '/admin/dashboard'
-          : data.user.role === 'manager'
+          : data.user.role === 'manager' || data.user.role === 'farmer'
           ? '/manager/dashboard'
-          : data.user.role === 'farmer'
-          ? '/farmer/dashboard'
+          : data.user.role === 'driver'
+          ? '/driver/dashboard'
           : '/home';
       navigate(dest);
     } catch (err) {

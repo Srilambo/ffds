@@ -131,6 +131,36 @@ export default function ShoppingActiveOrderWidget({
         </div>
       </div>
 
+      {/* Rider & Delivery Profile Details Bar */}
+      <div className="glass p-4 rounded-2xl border border-white/10 bg-slate-950/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-lg">
+            👤
+          </div>
+          <div>
+            <h4 className="font-bold text-white text-sm">
+              {activeOrder.driverId?.name || orderStatus.driverName ? (
+                <>Rider: <span className="text-emerald-300 font-extrabold">{activeOrder.driverId?.name || orderStatus.driverName}</span></>
+              ) : (
+                <span className="text-amber-300 italic">⏳ Awaiting Store Driver Assignment</span>
+              )}
+            </h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Vehicle: <span className="text-amber-400 font-semibold">{activeOrder.driverId?.vehicleType || orderStatus.driverVehicle || 'Delivery Team 🏍️'}</span> · Status: <span className="text-emerald-400 font-bold">{orderStatus.status.replace(/_/g, ' ').toUpperCase()}</span>
+            </p>
+          </div>
+        </div>
+
+        {(activeOrder.driverId?.phone || orderStatus.driverPhone || activeSelectedShop?.phone) && (
+          <a
+            href={`tel:${activeOrder.driverId?.phone || orderStatus.driverPhone || activeSelectedShop?.phone}`}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-glow hover:bg-emerald-400 transition-all"
+          >
+            <span>📞 {activeOrder.driverId?.phone || orderStatus.driverPhone ? 'Call Rider' : 'Call Store'} ({activeOrder.driverId?.phone || orderStatus.driverPhone || activeSelectedShop?.phone})</span>
+          </a>
+        )}
+      </div>
+
       {/* Receipt Modal */}
       {showBillModal && (
         <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-up">

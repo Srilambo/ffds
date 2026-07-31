@@ -42,13 +42,13 @@ async function createScan(req, res, next) {
       return res.status(400).json({ error: 'Image file required' });
     }
 
-    const { buffer, mimetype } = req.file;
+    const { buffer, mimetype, originalname } = req.file;
     const cnnResult = await cnnClient.classifyImage(buffer, mimetype);
     const gasReadings = generateGasReadings(cnnResult.label, cnnResult.confidence);
     const imageUrl = saveImage(buffer, mimetype);
 
-    // Always resolve food name from image (CNN + Gemini vision fallback)
-    const resolvedFoodType = (await geminiClient.resolveFoodType(buffer, mimetype, cnnResult)) || cnnResult.foodType || 'Food Item';
+    // Always resolve food name from image (Gemini vision + CNN + filename hint + color heuristic)
+    const resolvedFoodType = (await geminiClient.resolveFoodType(buffer, mimetype, cnnResult, originalname)) || cnnResult.foodType || 'Apple';
 
     // Calculate expiration date based on freshness label
     const now = new Date();
