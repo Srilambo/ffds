@@ -47,7 +47,7 @@ async function unreadCount(req, res, next) {
 async function markRead(req, res, next) {
   try {
     const notification = await Notification.findById(req.params.id);
-    if (!notification || notification.userId.toString() !== req.user._id) {
+    if (!notification || notification.userId.toString() !== req.user._id.toString()) {
       return res.status(404).json({ error: 'Notification not found' });
     }
 

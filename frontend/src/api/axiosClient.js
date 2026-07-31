@@ -5,7 +5,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ffds_token');
+  const token = sessionStorage.getItem('ffds_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -19,8 +19,8 @@ api.interceptors.response.use(
     const isAuthAttempt = url.includes('/auth/login') || url.includes('/auth/register');
 
     if (error.response?.status === 401 && !isAuthAttempt) {
-      localStorage.removeItem('ffds_token');
-      localStorage.removeItem('ffds_user');
+      sessionStorage.removeItem('ffds_token');
+      sessionStorage.removeItem('ffds_user');
       const publicPaths = ['/', '/login', '/register'];
       if (!publicPaths.includes(window.location.pathname)) {
         window.location.href = '/';

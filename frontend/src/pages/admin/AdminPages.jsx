@@ -149,6 +149,7 @@ export function AdminUsers() {
             <option value="all">All Roles</option>
             <option value="consumer">Consumer</option>
             <option value="manager">Manager</option>
+            <option value="driver">Driver</option>
             <option value="admin">Admin</option>
           </select>
         </div>
@@ -194,6 +195,7 @@ export function AdminUsers() {
                           >
                             <option value="consumer">Consumer</option>
                             <option value="manager">Manager</option>
+                            <option value="driver">Driver</option>
                             <option value="admin">Admin</option>
                           </select>
                         )}

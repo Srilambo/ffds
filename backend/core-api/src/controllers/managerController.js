@@ -1,8 +1,11 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const Scan = require('../models/Scan');
 const InventoryItem = require('../models/InventoryItem');
 const WasteLog = require('../models/WasteLog');
 const User = require('../models/User');
+const Order = require('../models/Order');
+const Notification = require('../models/Notification');
 const { parse } = require('csv-parse');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -486,6 +489,217 @@ Provide a concise, actionable response focused on business operations, cost savi
   }
 }
 
+// ─── Driver Management for Manager ────────────────────────────
+async function getManagerDrivers(req, res, next) {
+  try {
+    const managerId = req.user._id;
+    const managerObjId = mongoose.Types.ObjectId.isValid(managerId) ? new mongoose.Types.ObjectId(managerId) : managerId;
+    
+    const orConditions = [
+      { managerId: managerId },
+      { managerId: managerObjId },
+    ];
+    if (req.user.businessId) {
+      const busObjId = mongoose.Types.ObjectId.isValid(req.user.businessId) ? new mongoose.Types.ObjectId(req.user.businessId) : req.user.businessId;
+      orConditions.push({ managerId: req.user.businessId });
+      orConditions.push({ managerId: busObjId });
+    }
+
+    const drivers = await User.find({
+      role: 'driver',
+      $or: orConditions,
+    })
+      .select('-passwordHash')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json(drivers);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createOrLinkDriver(req, res, next) {
+  try {
+    const managerId = req.user._id;
+    const { name, email, password, phone, vehicleType, licensePlate } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Driver email is required' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let driver = await User.findOne({ email: cleanEmail });
+
+    if (driver) {
+      // If driver is already linked to this manager, return error asking for unique email
+      if (driver.managerId && driver.managerId.toString() === managerId.toString()) {
+        return res.status(400).json({
+          error: `A driver with email "${cleanEmail}" is already in your store. Please enter a different email address for your new driver (e.g. driver2@gmail.com).`,
+        });
+      }
+
+      // If existing user is not a driver, link them to this manager
+      if (driver.role !== 'driver') {
+        driver.role = 'driver';
+      }
+      driver.managerId = managerId;
+      if (name) driver.name = name;
+      if (phone) driver.phone = phone;
+      if (vehicleType) driver.vehicleType = vehicleType;
+      if (licensePlate) driver.licensePlate = licensePlate;
+      await driver.save();
+      return res.status(200).json({ message: 'Driver linked to your store successfully', driver });
+    }
+
+    if (!name || !password) {
+      return res.status(400).json({ error: 'Full name, email, and password are required to register a new driver.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    driver = await User.create({
+      name,
+      email: cleanEmail,
+      passwordHash,
+      role: 'driver',
+      managerId,
+      phone: phone || '',
+      vehicleType: vehicleType || 'Bicycle',
+      licensePlate: licensePlate || '',
+      driverStatus: 'available',
+      isActive: true,
+      lastLogin: null,
+    });
+
+    return res.status(201).json({ message: 'New driver created and linked to your store', driver });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function assignDriverToOrder(req, res, next) {
+  try {
+    const { orderId } = req.params;
+    const { driverId } = req.body;
+    const managerId = req.user._id;
+
+    if (!driverId) {
+      return res.status(400).json({ error: 'driverId is required' });
+    }
+
+    const order = await Order.findOne({ _id: orderId, managerId });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found or not owned by you' });
+    }
+
+    const driver = await User.findOne({ _id: driverId, role: 'driver', managerId });
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver not found or not under your management' });
+    }
+
+    order.driverId = driverId;
+    order.status = 'assigned';
+    order.assignedAt = new Date();
+    await order.save();
+
+    // Socket real-time push
+    const io = req.app.get('io');
+    if (io) {
+      const payload = {
+        orderId: order._id.toString(),
+        status: 'assigned',
+        driverId: driver._id.toString(),
+        driverName: driver.name,
+        driverPhone: driver.phone || '',
+        driverVehicle: driver.vehicleType || 'Bicycle',
+      };
+      io.to(`order:${order._id}`).emit('order_status_update', payload);
+      io.to(`order:${order._id.toString()}`).emit('order_status_update', payload);
+      io.emit('order_status_update', payload);
+    }
+
+    // In-app Notification for consumer
+    try {
+      await Notification.create({
+        userId: order.consumerId,
+        title: '🚴 Delivery Rider Assigned',
+        message: `Driver ${driver.name} has been assigned to your order #${order._id.toString().slice(-6)}.`,
+        type: 'order',
+      });
+    } catch (e) {}
+
+    // In-app Notification for driver
+    try {
+      await Notification.create({
+        userId: driverId,
+        title: '📦 New Delivery Assigned',
+        message: `Order #${order._id.toString().slice(-6)} has been assigned to you.`,
+        type: 'order',
+      });
+    } catch (e) {}
+
+    return res.status(200).json({ message: 'Driver assigned successfully', order });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateManagerDriverStatus(req, res, next) {
+  try {
+    const { driverId } = req.params;
+    const { driverStatus } = req.body;
+
+    const validStatuses = ['available', 'delivering', 'offline'];
+    if (!validStatuses.includes(driverStatus)) {
+      return res.status(400).json({ error: 'Status must be available, delivering, or offline' });
+    }
+
+    let driver = null;
+    if (mongoose.Types.ObjectId.isValid(driverId)) {
+      driver = await User.findById(driverId);
+    }
+    if (!driver) {
+      driver = await User.findOne({ email: driverId.trim().toLowerCase() });
+    }
+
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver account not found. Please refresh the driver list page.' });
+    }
+
+    driver.driverStatus = driverStatus;
+    await driver.save();
+
+    return res.status(200).json({ message: `Driver status updated to ${driverStatus}`, driver });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteManagerDriver(req, res, next) {
+  try {
+    const { driverId } = req.params;
+
+    let driver = null;
+    if (mongoose.Types.ObjectId.isValid(driverId)) {
+      driver = await User.findById(driverId);
+    }
+    if (!driver) {
+      driver = await User.findOne({ email: driverId.trim().toLowerCase() });
+    }
+
+    if (!driver) {
+      return res.status(404).json({ error: 'Driver account not found. Please refresh the driver list page.' });
+    }
+
+    // Unassign driver from any active pending orders before removing
+    await Order.updateMany({ driverId: driver._id, status: { $nin: ['delivered', 'rejected'] } }, { $set: { driverId: null, status: 'confirmed' } });
+    await User.deleteOne({ _id: driver._id });
+
+    return res.status(200).json({ message: 'Driver deleted from store successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getDashboard,
   listInventory,
@@ -497,4 +711,9 @@ module.exports = {
   getWasteAnalytics,
   generateWasteReportPDF,
   chat,
+  getManagerDrivers,
+  createOrLinkDriver,
+  assignDriverToOrder,
+  updateManagerDriverStatus,
+  deleteManagerDriver,
 };

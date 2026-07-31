@@ -26,10 +26,10 @@ export default function Login() {
       const dest =
         data.user?.role === 'admin'
           ? '/admin/dashboard'
-          : data.user?.role === 'manager'
+          : data.user?.role === 'manager' || data.user?.role === 'farmer'
           ? '/manager/dashboard'
-          : data.user?.role === 'farmer'
-          ? '/farmer/dashboard'
+          : data.user?.role === 'driver'
+          ? '/driver/dashboard'
           : '/home';
       navigate(dest);
     } catch (err) {

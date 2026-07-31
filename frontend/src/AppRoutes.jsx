@@ -37,8 +37,12 @@ import {
   BatchScan,
   ManagerShopProfile,
   ManagerOrders,
+  ManagerDriversWidget,
   ManagerSettings,
 } from './pages/manager/ManagerPages';
+
+// ── Driver pages ─────────────────────────────────────────────
+import { DriverDashboardPage } from './pages/driver/DriverPages';
 
 // ── Consumer pages ───────────────────────────────────────────
 import {
@@ -55,6 +59,7 @@ function RoleRedirect() {
   if (!user) return <Navigate to="/" replace />;
   if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
   if (user.role === 'manager' || user.role === 'farmer') return <Navigate to="/manager/dashboard" replace />;
+  if (user.role === 'driver') return <Navigate to="/driver/dashboard" replace />;
   return <Navigate to="/home" replace />;
 }
 
@@ -95,7 +100,17 @@ export default function AppRoutes() {
                 <Route path="/manager/chatbot"      element={<ManagerChatbot />} />
                 <Route path="/manager/shop-profile" element={<ManagerShopProfile />} />
                 <Route path="/manager/orders"       element={<ManagerOrders />} />
+                <Route path="/manager/drivers text"  element={<ManagerDriversWidget />} />
+                <Route path="/manager/drivers"      element={<ManagerDriversWidget />} />
                 <Route path="/manager/settings"     element={<ManagerSettings />} />
+
+                {/* ── Driver routes ── */}
+                <Route path="/driver/dashboard opacity" element={<DriverDashboardPage />} />
+                <Route path="/driver/dashboard" element={<DriverDashboardPage />} />
+                <Route path="/driver/deliveries" element={<DriverDashboardPage />} />
+                <Route path="/driver/profile shadow"    element={<DriverDashboardPage />} />
+                <Route path="/driver/profile shadow"    element={<DriverDashboardPage />} />
+                <Route path="/driver/profile"    element={<DriverDashboardPage />} />
 
                 {/* ── Backward-compat redirects for legacy farmer routes ── */}
                 <Route path="/farmer/*" element={<Navigate to="/manager/dashboard" replace />} />

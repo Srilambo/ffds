@@ -48,7 +48,7 @@ async function list(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const {
+    let {
       foodName,
       category,
       quantity,
@@ -57,11 +57,15 @@ async function create(req, res, next) {
       expiryDate,
       status,
       linkedScanId,
+      location,
     } = req.body;
 
-    if (!foodName || !category || quantity == null || !unit || !purchaseDate || !expiryDate) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!foodName || !category || quantity == null || !unit) {
+      return res.status(400).json({ error: 'Missing required fields: foodName, category, quantity, unit' });
     }
+
+    const finalPurchaseDate = purchaseDate ? new Date(purchaseDate) : new Date();
+    const finalExpiryDate = expiryDate ? new Date(expiryDate) : new Date(Date.now() + 7 * 86400000);
 
     let ownerType = 'consumer';
     let ownerId = req.user._id;
@@ -79,13 +83,12 @@ async function create(req, res, next) {
       category,
       quantity,
       unit,
-      purchaseDate,
-      expiryDate,
+      location: location || 'fridge',
+      purchaseDate: finalPurchaseDate,
+      expiryDate: finalExpiryDate,
       status: status || 'active',
       linkedScanId: linkedScanId || null,
       userId: req.user._id,
-      ownerId: req.user._id,
-      ownerType: req.user.role === 'manager' ? 'business' : req.user.role === 'farmer' ? 'farm' : 'consumer',
       teamId: req.user.teamId || null,
       ownerId,
       ownerType,

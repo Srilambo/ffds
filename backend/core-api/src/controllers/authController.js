@@ -18,6 +18,7 @@ function signToken(user) {
       email: user.email,
       role: user.role,
       language: user.language,
+      managerId: user.managerId ? user.managerId.toString() : null,
       teamId: user.teamId ? user.teamId.toString() : null,
       businessId: user.businessId ? user.businessId.toString() : null,
       farmId: user.farmId ? user.farmId.toString() : null,
@@ -35,10 +36,14 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     language: user.language,
+    managerId: user.managerId,
     teamId: user.teamId,
     businessId: user.businessId,
     farmId: user.farmId,
     familyId: user.familyId,
+    vehicleType: user.vehicleType || 'Bicycle',
+    licensePlate: user.licensePlate || '',
+    driverStatus: user.driverStatus || 'available',
     notificationPrefs: user.notificationPrefs || {
       expiryReminders: true,
       pushEnabled: true,
@@ -56,13 +61,13 @@ function sanitizeUser(user) {
 
 async function register(req, res, next) {
   try {
-    const { name, email, password, role, language } = req.body;
+    const { name, email, password, role, language, managerId, managerEmail, vehicleType, licensePlate } = req.body;
 
     if (!name || !email || !password || !role || !language) {
       return res.status(400).json({ error: 'All fields are required' });
     }
-    if (!['consumer', 'manager', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be consumer, manager, or admin' });
+    if (!['consumer', 'manager', 'admin', 'driver'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be consumer, manager, admin, or driver' });
     }
     if (!['en', 'si', 'ta', 'ar', 'fr', 'ja'].includes(language)) {
       return res.status(400).json({ error: 'Language must be en, si, ta, ar, fr, or ja' });
@@ -73,14 +78,27 @@ async function register(req, res, next) {
       return res.status(409).json({ error: 'Email already registered' });
     }
 
+    let assignedManagerId = null;
+    if (role === 'driver') {
+      if (managerId && mongoose.Types.ObjectId.isValid(managerId)) {
+        assignedManagerId = managerId;
+      } else if (managerEmail) {
+        const mgr = await User.findOne({ email: managerEmail, role: { $in: ['manager', 'farmer'] } });
+        if (mgr) assignedManagerId = mgr._id;
+      }
+      // If no manager specified, assign to the first available manager if exists
+      if (!assignedManagerId) {
+        const defaultMgr = await User.findOne({ role: { $in: ['manager', 'farmer'] } });
+        if (defaultMgr) assignedManagerId = defaultMgr._id;
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     
-    // Generate IDs based on role (Manager role includes farm & business capabilities)
+    // Generate IDs based on role
     const businessId = role === 'manager' ? new mongoose.Types.ObjectId() : null;
     const farmId = role === 'manager' ? businessId : null;
     const familyId = role === 'consumer' ? new mongoose.Types.ObjectId() : null;
-    
-    // For legacy compat with manager team actions
     const teamId = businessId;
 
     const user = await User.create({
@@ -89,10 +107,14 @@ async function register(req, res, next) {
       passwordHash,
       role,
       language,
+      managerId: assignedManagerId,
       teamId,
       businessId,
       farmId,
       familyId,
+      vehicleType: vehicleType || 'Bicycle',
+      licensePlate: licensePlate || '',
+      driverStatus: 'available',
       isActive: true,
       lastLogin: new Date(),
     });

@@ -38,202 +38,204 @@ export default function OrderCheckoutModalWidget({
   const orderGrandTotal = orderSubtotal + orderDeliveryFee + orderEcoFee;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-up">
-      <div className="glass rounded-2xl border border-white/15 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+    <div className="fixed inset-0 z-[1000] bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-3 sm:p-6 pt-16 sm:pt-20 overflow-y-auto animate-fade-up">
+      <div className="glass rounded-3xl border border-white/20 w-full max-w-6xl xl:max-w-7xl p-6 sm:p-8 space-y-6 shadow-2xl bg-slate-900/95 relative mb-12">
+        <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
-            <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
-              <span>🛒</span> Online Order & Store Selector
+            <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5">
+              <span className="text-2xl">🛒</span> Online Order & Store Selector
             </h2>
-            <p className="text-xs text-slate-400">Map matched 5 top proximity stores, itemized money breakdown & live delivery.</p>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">Map matched top proximity stores, itemized money breakdown & live delivery dispatch.</p>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 text-sm">✕</button>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-2xl bg-white/5 hover:bg-white/15 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center text-lg font-bold transition-all cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
 
-        {/* Interactive Proximity Stores Map */}
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-            <span>📍</span> 5 Nearby Suggested Proximity Stores on Map
-          </span>
-          <div className="rounded-xl overflow-hidden border border-white/15 h-52 w-full relative">
-            <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }}>
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-              <Marker position={[userLat, userLng]} icon={userPinIcon}>
-                <Popup><strong>📍 Your Delivery Location</strong></Popup>
-              </Marker>
-              {nearbyShops.map((shop) => (
-                <Marker key={shop._id} position={shop.coords || [userLat, userLng]} icon={storePinIcon} eventHandlers={{ click: () => onSelectShop(shop) }}>
-                  <Popup>
-                    <strong>🏪 {shop.shopName}</strong><br />
-                    {shop.distanceKm} km away · {shop.deliveryTimeMinutes}<br />
-                    Fee: ${shop.deliveryFee === 0 ? 'Free' : shop.deliveryFee.toFixed(2)}
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-            <div className="absolute bottom-2 left-2 z-[400] glass px-2.5 py-1 rounded-lg text-[10px] font-bold text-white">
-              Tap pin to pick store
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Interactive Map & Store Cards */}
+          <div className="lg:col-span-7 space-y-5">
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <span>📍</span> Proximity Map ({nearbyShops.length} Stores Available)
+              </span>
+              <div className="rounded-2xl overflow-hidden border border-white/15 h-56 sm:h-64 w-full relative shadow-lg">
+                <MapContainer center={[userLat, userLng]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                  <Marker position={[userLat, userLng]} icon={userPinIcon}>
+                    <Popup><strong>📍 Your Delivery Location</strong></Popup>
+                  </Marker>
+                  {nearbyShops.map((shop) => (
+                    <Marker key={shop._id} position={shop.coords || [userLat, userLng]} icon={storePinIcon} eventHandlers={{ click: () => onSelectShop(shop) }}>
+                      <Popup>
+                        <strong>🏪 {shop.shopName}</strong><br />
+                        {shop.distanceKm} km away · {shop.deliveryTimeMinutes}<br />
+                        Fee: ${shop.deliveryFee === 0 ? 'Free' : shop.deliveryFee.toFixed(2)}
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+                <div className="absolute bottom-3 left-3 z-[400] glass px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-md">
+                  Tap pin to pick store
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Select Suggested Store ({nearbyShops.length} Stores Available)
+              </span>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1.5 scrollbar-thin">
+                {nearbyShops.map((shop) => {
+                  const isSelected = selectedShop?._id === shop._id;
+                  return (
+                    <div
+                      key={shop._id}
+                      onClick={() => onSelectShop(shop)}
+                      className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow ring-1 ring-brand-500/40'
+                          : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-2xl shrink-0">🏪</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs sm:text-sm text-white flex items-center gap-2 truncate">
+                            <span className="truncate">{shop.shopName}</span>
+                            {shop.isVerified && (
+                              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold shrink-0">
+                                ✓ Verified
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400 truncate mt-0.5">
+                            {shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-bold text-brand-300 block">
+                          {shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}
+                        </span>
+                        <span className="text-xs text-emerald-400 font-extrabold block mt-0.5">
+                          {shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 5 Suggested Proximity Stores Cards Selector */}
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Store ({nearbyShops.length} Suggested Stores)</span>
-          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {nearbyShops.map((shop) => {
-              const isSelected = selectedShop?._id === shop._id;
-              const hasStock = Array.isArray(shop.stockSummary) && shop.stockSummary.length > 0;
-              return (
-                <div
-                  key={shop._id}
-                  onClick={() => onSelectShop(shop)}
-                  className={`p-3.5 rounded-xl border cursor-pointer transition-all space-y-2 ${
-                    isSelected ? 'bg-brand-500/20 border-brand-500 text-white shadow-glow' : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+          {/* Right Column: Financial Breakdown, Payment Options & Large Submit Button */}
+          <div className="lg:col-span-5 flex flex-col justify-between space-y-5">
+            <div className="glass p-5 rounded-2xl border border-white/10 space-y-4 bg-white/5 shadow-md">
+              <span className="text-xs font-extrabold text-slate-200 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-2">💰 Order Money Breakdown</span>
+                <span className="text-brand-300 font-mono font-bold text-xs">{activeOrderItems.length} items</span>
+              </span>
+              <div className="space-y-2 max-h-40 overflow-y-auto text-xs text-slate-300 pr-1 scrollbar-thin">
+                {activeOrderItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                    <span className="flex items-center gap-2 truncate">
+                      <span className="text-sm">{item.emoji}</span> <span className="truncate font-semibold">{item.name}</span> <span className="text-slate-400 font-mono text-[11px]">({item.qty})</span>
+                    </span>
+                    <span className="font-mono text-emerald-400 font-bold text-xs shrink-0">${((item.estimatedPrice || 2.5) * (item.quantityNum || 1)).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-3 border-t border-white/10 space-y-1.5 text-xs font-mono">
+                <div className="flex justify-between text-slate-400">
+                  <span>Items Subtotal:</span>
+                  <span className="text-white font-bold">${orderSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Delivery Fee:</span>
+                  <span className="text-white font-bold">{orderDeliveryFee === 0 ? 'FREE' : `$${orderDeliveryFee.toFixed(2)}`}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Eco-Packaging Fee:</span>
+                  <span className="text-white font-bold">${orderEcoFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-extrabold text-base text-brand-300 pt-2 border-t border-white/10">
+                  <span>Grand Total:</span>
+                  <span className="text-emerald-400">${orderGrandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Payment Method</span>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`py-3.5 px-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow ring-1 ring-brand-500/40' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">🏪</span>
-                      <div>
-                        <p className="font-bold text-xs flex items-center gap-1.5">
-                          {shop.shopName}
-                          {shop.isVerified && <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold">✓ Verified</span>}
-                        </p>
-                        <p className="text-[11px] text-slate-400">{shop.address} · ⭐ {shop.rating || 4.9} ({shop.reviewsCount || 100}+ reviews)</p>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-bold text-brand-300 block">{shop.distanceKm || '1.2'} km · ⚡ {shop.deliveryTimeMinutes || '10-15 min'}</span>
-                      <span className="text-[10px] text-slate-400 block">{shop.deliveryFee === 0 ? '🎉 Free Delivery' : `$${(shop.deliveryFee || 1.5).toFixed(2)} Delivery`}</span>
-                    </div>
+                  💵 Cash on Delivery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('card')}
+                  className={`py-3.5 px-3 rounded-2xl border text-xs font-extrabold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow ring-1 ring-brand-500/40' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                  }`}
+                >
+                  💳 Credit / Debit Card
+                </button>
+              </div>
+
+              {paymentMethod === 'card' && (
+                <div className="glass p-4 rounded-2xl border border-brand-500/30 bg-brand-500/5 space-y-3 animate-fade-up mt-2">
+                  <input
+                    type="text"
+                    placeholder="Card Number (4532 •••• •••• 8921)"
+                    value={cardForm.number}
+                    onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })}
+                    className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="MM/YY"
+                      value={cardForm.expiry}
+                      onChange={(e) => setCardForm({ ...cardForm, expiry: e.target.value })}
+                      className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                    />
+                    <input
+                      type="password"
+                      placeholder="CVV (123)"
+                      value={cardForm.cvv}
+                      onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })}
+                      className="input-dark w-full px-3.5 py-2.5 text-xs rounded-xl font-mono"
+                    />
                   </div>
-
-                  {/* Stock Products Badges from Manager Profile */}
-                  {hasStock && (
-                    <div className="pt-1.5 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                      <span className="text-[10px] text-emerald-400 font-bold uppercase shrink-0">In-Stock Products:</span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {shop.stockSummary.slice(0, 4).map((st, sIdx) => (
-                          <span key={sIdx} className="text-[10px] bg-white/10 text-slate-200 px-2 py-0.5 rounded-full font-semibold border border-white/10 whitespace-nowrap">
-                            🛍️ {typeof st === 'string' ? st : st.name}
-                          </span>
-                        ))}
-                        {shop.stockSummary.length > 4 && (
-                          <span className="text-[10px] text-slate-400 font-bold">+{shop.stockSummary.length - 4} more</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {/* Product Money & Itemized Financial Details */}
-        <div className="glass p-4 rounded-xl border border-white/10 space-y-3 bg-white/5">
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
-            <span>💰 Product & Order Money Breakdown</span>
-            <span className="text-brand-300 font-mono">{activeOrderItems.length} items</span>
-          </span>
-          <div className="space-y-1.5 max-h-28 overflow-y-auto text-xs text-slate-300 pr-1">
-            {activeOrderItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between border-b border-white/5 pb-1">
-                <span className="flex items-center gap-1.5">
-                  <span>{item.emoji}</span> {item.name} <span className="text-slate-400 font-mono">({item.qty})</span>
-                </span>
-                <span className="font-mono text-emerald-400 font-bold">${((item.estimatedPrice || 2.5) * (item.quantityNum || 1)).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="pt-2 border-t border-white/10 space-y-1 text-xs font-mono">
-            <div className="flex justify-between text-slate-400">
-              <span>Items Subtotal:</span>
-              <span className="text-white">${orderSubtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Delivery Fee:</span>
-              <span className="text-white">{orderDeliveryFee === 0 ? 'FREE' : `$${orderDeliveryFee.toFixed(2)}`}</span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Eco-Packaging & Service Fee:</span>
-              <span className="text-white">${orderEcoFee.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-sm text-brand-300 pt-1 border-t border-white/10">
-              <span>Grand Total (Money Due):</span>
-              <span>${orderGrandTotal.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Select Payment Method */}
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Select Payment Method</span>
-          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setPaymentMethod('cash')}
-              className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                paymentMethod === 'cash' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-              }`}
+              onClick={onSubmitOrder}
+              disabled={placingOrder || !selectedShop}
+              className="btn-glow w-full py-4 rounded-2xl text-white font-black text-base flex items-center justify-center gap-2.5 disabled:opacity-50 cursor-pointer shadow-glow transition-all active:scale-98"
             >
-              💵 Cash on Delivery
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('card')}
-              className={`py-3 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                paymentMethod === 'card' ? 'bg-brand-500/20 border-brand-500 text-brand-300 shadow-glow' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-              }`}
-            >
-              💳 Credit / Debit Card
+              {placingOrder ? (
+                <><span className="spinner" /> Submitting Order...</>
+              ) : (
+                `🚀 Dispatch Order ($${orderGrandTotal.toFixed(2)})`
+              )}
             </button>
           </div>
-
-          {paymentMethod === 'card' && (
-            <div className="glass p-3 rounded-xl border border-brand-500/30 bg-brand-500/5 space-y-2 animate-fade-up mt-2">
-              <input
-                type="text"
-                placeholder="Card Number (4532 •••• •••• 8921)"
-                value={cardForm.number}
-                onChange={(e) => setCardForm({ ...cardForm, number: e.target.value })}
-                className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  placeholder="MM/YY"
-                  value={cardForm.expiry}
-                  onChange={(e) => setCardForm({ ...cardForm, expiry: e.target.value })}
-                  className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-                />
-                <input
-                  type="password"
-                  placeholder="CVV (123)"
-                  value={cardForm.cvv}
-                  onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })}
-                  className="input-dark w-full px-3 py-2 text-xs rounded-xl font-mono"
-                />
-              </div>
-            </div>
-          )}
         </div>
-
-        {/* Submit Order Button */}
-        <button
-          type="button"
-          onClick={onSubmitOrder}
-          disabled={placingOrder || !selectedShop}
-          className="btn-glow w-full py-3.5 rounded-xl text-white font-extrabold text-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-glow"
-        >
-          {placingOrder ? (
-            <><span className="spinner" /> Submitting Order...</>
-          ) : (
-            `🚀 Place Order ($${orderGrandTotal.toFixed(2)}) via ${paymentMethod === 'card' ? 'Card' : 'Cash'}`
-          )}
-        </button>
       </div>
     </div>
   );

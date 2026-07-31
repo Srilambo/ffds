@@ -92,6 +92,16 @@ function Layout() {
       avatarBg: 'from-cyan-600 to-blue-500',
       settingsPath: '/manager/settings',
     },
+    driver: {
+      badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/10',
+      glow: 'shadow-amber-500/20',
+      topLine: 'from-amber-500/60 via-orange-500/40 to-amber-500/60',
+      label: '🚚 Driver',
+      activeTab: 'bg-amber-500/20 text-amber-200 border-amber-500/40 shadow-glow shadow-amber-500/20 font-semibold',
+      hoverTab: 'hover:text-amber-200 hover:bg-amber-500/10',
+      avatarBg: 'from-amber-600 to-orange-500',
+      settingsPath: '/driver/profile',
+    },
     consumer: {
       badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10',
       glow: 'shadow-emerald-500/20',
@@ -111,6 +121,7 @@ function Layout() {
     if (!user) return '/';
     if (user.role === 'admin') return '/admin/dashboard';
     if (user.role === 'manager' || user.role === 'farmer') return '/manager/dashboard';
+    if (user.role === 'driver') return '/driver/dashboard';
     return '/home';
   };
 
@@ -133,10 +144,17 @@ function Layout() {
           { to: '/manager/dashboard',     label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
           { to: '/manager/inventory',     label: t('nav.inventory', 'Stock Control'), icon: '🍎' },
           { to: '/manager/orders',        label: 'Orders', icon: '📦' },
+          { to: '/manager/drivers',       label: 'Drivers', icon: '🚚' },
           { to: '/manager/batch-scan',    label: 'Bulk Scan', icon: '⚡' },
           { to: '/manager/scans',         label: t('nav.manager.scans', 'Scan Logs'), icon: '📜' },
           { to: '/manager/waste',         label: t('nav.manager.waste', 'Waste Analytics'), icon: '📉' },
           { to: '/manager/chatbot',       label: t('nav.manager.chatbot', 'AI Advisor'), icon: '🤖' },
+        ];
+      case 'driver':
+        return [
+          { to: '/driver/dashboard',     label: 'Dashboard', icon: '📊' },
+          { to: '/driver/deliveries',    label: 'My Deliveries', icon: '🚚' },
+          { to: '/driver/profile',       label: 'Profile & Vehicle', icon: '👤' },
         ];
       case 'consumer':
       default:
@@ -161,6 +179,13 @@ function Layout() {
   const desktopMoreIsActive = secondaryDesktopLinks.some((l) => isActive(l.to));
 
   const isConsumer = user?.role === 'consumer' || !user?.role;
+  const isDriver = user?.role === 'driver';
+
+  const driverMobileTabs = [
+    { to: '/driver/dashboard', label: 'Dashboard', icon: '📊' },
+    { to: '/driver/deliveries', label: 'My Deliveries', icon: '🚚' },
+    { to: '/driver/profile', label: 'Profile & Vehicle', icon: '👤' },
+  ];
 
   const consumerMobileTabs = [
     { to: '/home', label: t('nav.scan', 'Scan'), icon: '🔍' },
@@ -175,8 +200,8 @@ function Layout() {
     { to: '/consumer/settings', label: t('nav.consumer.settings', 'Profile & Settings'), icon: '👤' },
   ];
 
-  const activeMobileTabs = isConsumer ? consumerMobileTabs : allNavLinks.slice(0, 4);
-  const activeMobileMoreLinks = isConsumer ? consumerMoreLinks : allNavLinks.slice(4);
+  const activeMobileTabs = isDriver ? driverMobileTabs : isConsumer ? consumerMobileTabs : allNavLinks.slice(0, 4);
+  const activeMobileMoreLinks = isDriver ? [] : isConsumer ? consumerMoreLinks : allNavLinks.slice(4);
 
   const mobileMoreIsActive = activeMobileMoreLinks.some((l) => isActive(l.to));
 
