@@ -11,7 +11,7 @@ async function followUp(req, res, next) {
     }
 
     const scan = await Scan.findById(scanId);
-    if (!scan || scan.userId.toString() !== req.user._id) {
+    if (!scan || scan.userId.toString() !== req.user._id.toString()) {
       return res.status(404).json({ error: 'Scan not found' });
     }
 
