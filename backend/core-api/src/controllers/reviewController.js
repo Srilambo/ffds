@@ -42,6 +42,17 @@ async function createReview(req, res, next) {
       }
     }
 
+    // 3. Fallback: If still no driverId, auto-attach to active driver (e.g. Tamil or first driver role)
+    if (!targetDriverId) {
+      const activeDriver = await User.findOne({ role: 'driver' });
+      if (activeDriver) {
+        targetDriverId = activeDriver._id;
+        targetDriverName = activeDriver.name;
+      } else {
+        targetDriverName = targetDriverName || 'Tamil (Driver)';
+      }
+    }
+
     if (!targetShopId) {
       const defaultShop = await Shop.findOne({ shopName: /Tellippalai/i }) || await Shop.findOne({});
       if (defaultShop) {
@@ -63,7 +74,7 @@ async function createReview(req, res, next) {
       driverId: targetDriverId,
       consumerName: req.user.name || 'Customer',
       shopName: targetShopName,
-      driverName: targetDriverName || 'Store Rider',
+      driverName: targetDriverName || 'Tamil (Driver)',
       riderRating: rRating,
       storeRating: sRating,
       freshnessRating: fRating,
@@ -92,7 +103,11 @@ async function getManagerShopReviews(req, res, next) {
     const shops = await Shop.find({ managerId });
     const shopIds = shops.map((s) => s._id);
 
-    const reviews = await Review.find({ shopId: { $in: shopIds } })
+    const query = shopIds.length > 0
+      ? { $or: [{ shopId: { $in: shopIds } }, { shopId: null }, { driverId: { $ne: null } }] }
+      : {};
+
+    const reviews = await Review.find(query)
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('consumerId', 'name email')
@@ -109,12 +124,14 @@ async function getDriverReviews(req, res, next) {
   try {
     const driverId = req.user._id;
     const driverObjId = mongoose.Types.ObjectId.isValid(driverId) ? new mongoose.Types.ObjectId(driverId) : driverId;
+    const driverName = req.user?.name || '';
 
     const reviews = await Review.find({
       $or: [
         { driverId: driverId },
         { driverId: driverObjId },
-        { driverName: { $regex: new RegExp(req.user.name.trim(), 'i') } },
+        { driverName: { $regex: new RegExp(driverName.trim() || 'Tamil', 'i') } },
+        { driverId: null },
       ],
     })
       .sort({ createdAt: -1 })

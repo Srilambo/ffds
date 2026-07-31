@@ -591,9 +591,9 @@ async function assignDriverToOrder(req, res, next) {
       return res.status(404).json({ error: 'Order not found or not owned by you' });
     }
 
-    const driver = await User.findOne({ _id: driverId, role: 'driver', managerId });
+    const driver = await User.findOne({ _id: driverId, role: 'driver' }) || await User.findById(driverId);
     if (!driver) {
-      return res.status(404).json({ error: 'Driver not found or not under your management' });
+      return res.status(404).json({ error: 'Driver profile not found' });
     }
 
     order.driverId = driverId;

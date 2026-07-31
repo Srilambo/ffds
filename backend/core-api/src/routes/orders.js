@@ -17,7 +17,8 @@ router.patch('/:id/status',             auth, requireRole('manager'), orderContr
 // ─── Admin ────────────────────────────────────────────────────
 router.get('/admin/all',  auth, requireRole('admin'), orderController.getAllOrders);
 
-// ─── Shared: single order (consumer or manager) ───────────────
+// ─── Shared: single order & cancel ────────────────────────────
 router.get('/:id', auth, orderController.getOrderById);
+router.patch('/:id/cancel', auth, orderController.cancelOrder);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const User = require('../models/User');
 const Shop = require('../models/Shop');
+const InventoryItem = require('../models/InventoryItem');
 const Notification = require('../models/Notification');
 
 function getIO(req) {
@@ -32,7 +33,7 @@ async function getDriverDashboard(req, res, next) {
     const assignedOrders = await Order.find({ driverId })
       .sort({ createdAt: -1 })
       .populate('consumerId', 'name email phone address')
-      .populate('shopId', 'shopName address phone');
+      .populate('shopId', 'shopName address phone location');
 
     const activeDeliveries = assignedOrders.filter(
       (o) => ['assigned', 'out_for_delivery', 'preparing'].includes(o.status)
@@ -91,7 +92,7 @@ async function getAssignedOrders(req, res, next) {
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('consumerId', 'name email phone address')
-      .populate('shopId', 'shopName address phone');
+      .populate('shopId', 'shopName address phone location');
 
     return res.status(200).json(orders);
   } catch (err) {
@@ -126,6 +127,70 @@ async function updateDeliveryStatus(req, res, next) {
       }
       order.deliveredAt = new Date();
       await User.findByIdAndUpdate(driverId, { driverStatus: 'available' });
+
+      // ─── Auto-add delivered items to consumer's Fridge Inventory ───
+      try {
+        const today      = new Date();
+        const purchase   = new Date(today);
+
+        // Helper: guess expiry days by item category
+        const expiryDaysMap = (cat) => {
+          const c = (cat || '').toLowerCase();
+          if (c.includes('dairy') || c.includes('milk') || c.includes('egg'))   return 7;
+          if (c.includes('meat') || c.includes('fish') || c.includes('seafood')) return 3;
+          if (c.includes('bread') || c.includes('bakery'))                       return 4;
+          if (c.includes('fruit') || c.includes('vegeta') || c.includes('produce')) return 7;
+          return 10; // default for packaged/other goods
+        };
+
+        // Map order item category to InventoryItem enum
+        const mapCategory = (cat) => {
+          const c = (cat || '').toLowerCase();
+          if (c.includes('fruit'))   return 'fruit';
+          if (c.includes('vegeta') || c.includes('produce') || c.includes('leafy')) return 'vegetable';
+          if (c.includes('dairy') || c.includes('milk') || c.includes('egg') || c.includes('cheese')) return 'dairy';
+          if (c.includes('meat') || c.includes('chicken') || c.includes('beef')) return 'meat';
+          if (c.includes('bread') || c.includes('bake') || c.includes('cake'))  return 'bakery';
+          return 'other';
+        };
+
+        // Parse qty: e.g. '2 kg', '5 pcs', '1 unit' → { qty: 2, unit: 'kg' }
+        const parseQty = (qtyStr) => {
+          const match = String(qtyStr || '1').match(/(\d+\.?\d*)\s*(.*)?/);
+          return {
+            quantity: parseFloat(match?.[1] || 1) || 1,
+            unit:     (match?.[2] || 'pcs').trim() || 'pcs',
+          };
+        };
+
+        const fridgeItems = (order.items || []).map(item => {
+          const category = mapCategory(item.category);
+          const days     = expiryDaysMap(item.category);
+          const expiry   = new Date(today);
+          expiry.setDate(expiry.getDate() + days);
+          const { quantity, unit } = parseQty(item.qty);
+          return {
+            ownerId:      order.consumerId,
+            ownerType:    'consumer',
+            userId:       order.consumerId,
+            foodName:     item.name,
+            category,
+            quantity,
+            unit,
+            purchaseDate: purchase,
+            expiryDate:   expiry,
+            status:       'fresh',
+            location:     'fridge',
+          };
+        });
+
+        if (fridgeItems.length) {
+          await InventoryItem.insertMany(fridgeItems);
+        }
+      } catch (fridgeErr) {
+        // Non-blocking: log but don't fail the delivery confirmation
+        console.warn('[Auto-Fridge] Failed to add items to fridge:', fridgeErr.message);
+      }
     } else if (status === 'out_for_delivery') {
       order.outForDeliveryAt = new Date();
       await User.findByIdAndUpdate(driverId, { driverStatus: 'delivering' });
