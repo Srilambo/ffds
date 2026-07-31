@@ -70,6 +70,8 @@ const staticHeaderMiddleware = (req, res, next) => {
 app.use('/uploads', staticHeaderMiddleware, express.static(path.join(__dirname, '../uploads')));
 app.use('/assets/images', staticHeaderMiddleware, express.static(path.join(__dirname, '../assets/images')));
 
+app.get('/health', (req, res) => res.json({ status: 'ok', message: 'Core API + Socket.io running', timestamp: new Date() }));
+
 app.use('/auth', authRoutes);
 app.use('/scan', scanRoutes);
 app.use('/scans', scansRoutes);

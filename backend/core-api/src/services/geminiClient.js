@@ -194,7 +194,7 @@ What food is in this image? (one word only)`;
   };
 
   // Try multiple models in order — gemini-2.0-flash is default on latest SDK
-  const VISION_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+  const VISION_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'];
 
   let lastErr = null;
   for (const modelName of VISION_MODELS) {
@@ -299,7 +299,7 @@ Provide a concise explanation of why the food appears ${label}, health considera
  * if the CNN returned a generic label.
  */
 function getMockExplanation({ foodType, label, confidence, gasReadings, language, role }) {
-  const fType = (foodType && !isGenericFoodLabel(foodType)) ? normalizeFoodTypeName(foodType) : 'Apple';
+  const fType = (foodType && !isGenericFoodLabel(foodType)) ? normalizeFoodTypeName(foodType) : (foodType || 'food item');
   
   if (language === 'si') {
     if (label === 'Fresh') {
