@@ -14,6 +14,8 @@ const farmerRoutes = require('./routes/farmer');
 const adminRoutes  = require('./routes/admin');
 const shopRoutes   = require('./routes/shops');
 const orderRoutes  = require('./routes/orders');
+const driverRoutes = require('./routes/driver');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 
@@ -79,6 +81,8 @@ app.use('/farmer',  farmerRoutes);
 app.use('/admin',   adminRoutes);
 app.use('/shops',   shopRoutes);
 app.use('/orders',  orderRoutes);
+app.use('/driver',  driverRoutes);
+app.use('/reviews', reviewRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

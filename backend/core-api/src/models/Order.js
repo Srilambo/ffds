@@ -13,10 +13,11 @@ const orderSchema = new mongoose.Schema(
     consumerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     shopId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Shop', required: true },
     managerId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    driverId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     items: [orderItemSchema],
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'preparing', 'out_for_delivery', 'delivered', 'rejected'],
+      enum: ['pending', 'confirmed', 'preparing', 'assigned', 'out_for_delivery', 'delivered', 'rejected'],
       default: 'pending',
     },
     paymentMethod: { type: String, enum: ['cash', 'card'], default: 'cash' },
@@ -30,6 +31,10 @@ const orderSchema = new mongoose.Schema(
       lat: { type: Number, default: 0 },
       lng: { type: Number, default: 0 },
     },
+    deliveryOtp: { type: String, default: null },
+    assignedAt: { type: Date, default: null },
+    outForDeliveryAt: { type: Date, default: null },
+    deliveredAt: { type: Date, default: null },
   },
   { collection: 'orders', timestamps: true }
 );
@@ -38,5 +43,6 @@ const orderSchema = new mongoose.Schema(
 orderSchema.index({ consumerId: 1, createdAt: -1 });
 orderSchema.index({ shopId: 1, createdAt: -1 });
 orderSchema.index({ managerId: 1, status: 1 });
+orderSchema.index({ driverId: 1, status: 1 });
 
 module.exports = mongoose.model('Order', orderSchema);

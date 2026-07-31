@@ -272,6 +272,7 @@ export default function AdminDashboard({ metrics }) {
                         >
                           <option value="consumer">Consumer (Regular)</option>
                           <option value="manager">Manager</option>
+                          <option value="driver">Driver (Delivery)</option>
                           <option value="admin">Admin</option>
                         </select>
                       )}

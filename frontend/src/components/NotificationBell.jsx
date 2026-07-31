@@ -15,6 +15,15 @@ const severityIcon = {
   info: '🔔',
 };
 
+const typeIcon = {
+  order: '🛒',
+  delivery: '🚴',
+  expiry: '⏰',
+  lowstock: '⚠️',
+  system: '🔔',
+  batch: '📦',
+};
+
 export default function NotificationBell() {
   const { t } = useTranslation();
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
@@ -88,7 +97,7 @@ export default function NotificationBell() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-lg shrink-0">{severityIcon[n.severity] || '🔔'}</span>
+                    <span className="text-lg shrink-0">{typeIcon[n.type] || severityIcon[n.severity] || '🔔'}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className={`text-xs font-bold ${!n.isRead ? 'text-white' : 'text-slate-400'}`}>

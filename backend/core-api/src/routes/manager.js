@@ -30,4 +30,11 @@ router.get('/waste-report/pdf', managerController.generateWasteReportPDF);
 // Chatbot
 router.post('/chat', managerController.chat);
 
+// Drivers Management
+router.get('/drivers', managerController.getManagerDrivers);
+router.post('/drivers', managerController.createOrLinkDriver);
+router.patch('/drivers/:driverId/status', managerController.updateManagerDriverStatus);
+router.delete('/drivers/:driverId', managerController.deleteManagerDriver);
+router.post('/orders/:orderId/assign-driver', managerController.assignDriverToOrder);
+
 module.exports = router;
