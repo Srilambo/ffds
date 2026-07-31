@@ -51,6 +51,7 @@ async function placeOrder(req, res, next) {
       consumerId,
       shopId: shop._id,
       managerId: shop.managerId,
+      driverId: null, // Unassigned until Manager assigns a rider
       items,
       paymentMethod: paymentMethod || 'cash',
       totalAmount,
@@ -277,6 +278,47 @@ async function getAllOrders(req, res, next) {
   }
 }
 
+// ─── Shared: Cancel Order (Consumer or Manager) ───────────────
+async function cancelOrder(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+
+    const order = (mongoose.Types.ObjectId.isValid(id)) ? await Order.findById(id) : null;
+    if (order) {
+      if (order.status === 'delivered') {
+        return res.status(400).json({ error: 'Delivered orders cannot be cancelled.' });
+      }
+      order.status = 'rejected';
+      order.rejectionReason = reason || 'Cancelled by customer';
+      await order.save();
+
+      // Emit Socket.io update
+      const io = getIO(req);
+      if (io) {
+        io.to(`order:${order._id}`).emit('order_status_update', {
+          orderId: order._id.toString(),
+          status: 'rejected',
+          rejectionReason: order.rejectionReason,
+        });
+        io.emit('order_status_update', {
+          orderId: order._id.toString(),
+          status: 'rejected',
+          rejectionReason: order.rejectionReason,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      message: 'Order cancelled successfully',
+      status: 'rejected',
+      reason: reason || 'Cancelled by customer'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   placeOrder,
   getMyOrders,
@@ -285,4 +327,5 @@ module.exports = {
   updateOrderStatus,
   getManagerAllOrders,
   getAllOrders,
+  cancelOrder,
 };

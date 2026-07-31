@@ -740,6 +740,35 @@ export function ConsumerShoppingList() {
     }
     setActiveChecklistOrder(null);
   };
+
+  const handleCancelOrder = async () => {
+    if (!activeChecklistOrder?._id) {
+      setActiveChecklistOrder(null);
+      try { sessionStorage.removeItem('ffds_active_order'); } catch {}
+      return;
+    }
+    const orderNum = activeChecklistOrder._id.toString().slice(-6);
+    const confirmCancel = window.confirm(
+      `Are you sure you want to cancel Order #${orderNum}?\nThis will halt store preparation and delivery.`
+    );
+    if (!confirmCancel) return;
+
+    try {
+      await api.patch(`/orders/${activeChecklistOrder._id}/cancel`, { reason: 'Cancelled by customer' });
+    } catch (err) {
+      console.warn('Cancel order API error:', err.message);
+    }
+
+    setChecklistOrderStatus({ status: 'rejected' });
+    try {
+      sessionStorage.setItem(`ffds_dismissed_order_${activeChecklistOrder._id}`, 'true');
+      sessionStorage.removeItem('ffds_active_order');
+    } catch {}
+    setSyncMsg(`🚫 Order #${orderNum} has been cancelled successfully.`);
+    setTimeout(() => {
+      setActiveChecklistOrder(null);
+    }, 1500);
+  };
   const [deliveryRiderPos, setDeliveryRiderPos] = useState([9.7845, 80.0270]);
   const [showBillHistoryModal, setShowBillHistoryModal] = useState(false);
   const [viewReceipt, setViewReceipt] = useState(null);
@@ -850,7 +879,7 @@ export function ConsumerShoppingList() {
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
-    const dName = activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName || '';
+    const dName = activeChecklistOrder?.driverId?.name || checklistOrderStatus?.driverName || 'Tamil (Driver)';
     const dId = activeChecklistOrder?.driverId?._id || activeChecklistOrder?.driverId || checklistOrderStatus?.driverId;
 
     const reviewData = {
@@ -1364,18 +1393,28 @@ export function ConsumerShoppingList() {
       setBillHistory(updatedHistory);
       try { localStorage.setItem('ffds_bill_history', JSON.stringify(updatedHistory)); } catch { }
 
-      setActiveChecklistOrder({
+      const newActiveOrderObj = {
         _id: orderId,
         shopName: selectedShop.shopName,
         totalAmount: grandTotal,
         paymentMethod,
         itemsCount: orderItemsList.length,
         deliveryOtp: otpCode,
-      });
+        status: 'pending',
+        driverId: null,
+        driverName: null,
+        createdAt: new Date().toISOString(),
+      };
 
+      setActiveChecklistOrder(newActiveOrderObj);
       setChecklistOrderStatus({ status: 'pending' });
+      try {
+        sessionStorage.setItem('ffds_active_order', JSON.stringify(newActiveOrderObj));
+        sessionStorage.removeItem(`ffds_dismissed_order_${orderId}`);
+      } catch {}
+
       setShowOrderModal(false);
-      setSyncMsg(`🎉 Order placed & sent to store! Delivery Security OTP: ${otpCode}`);
+      setSyncMsg(`🎉 New Order #${orderId.toString().slice(-6)} placed! Security OTP: ${otpCode}`);
       setTimeout(() => setSyncMsg(''), 6000);
     } catch {
       alert('Failed to place order');
@@ -1507,6 +1546,15 @@ export function ConsumerShoppingList() {
               <span className="text-xs px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-extrabold">
                 {paymentMethod === 'card' ? '💳 Paid via Card' : '💵 Cash on Delivery'} (${(activeChecklistOrder.totalAmount || orderGrandTotal).toFixed(2)})
               </span>
+              {checklistOrderStatus.status !== 'delivered' && checklistOrderStatus.status !== 'rejected' && (
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  className="text-xs text-rose-300 hover:text-white px-3 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 transition-all font-bold cursor-pointer flex items-center gap-1 shadow-sm"
+                >
+                  <span>🚫</span> Cancel Order
+                </button>
+              )}
               <button onClick={handleDismissOrderTracking} className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-xl hover:bg-white/10 transition-all font-semibold cursor-pointer">✕ Dismiss & Close</button>
             </div>
           </div>
@@ -1589,6 +1637,15 @@ export function ConsumerShoppingList() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {checklistOrderStatus.status !== 'delivered' && checklistOrderStatus.status !== 'rejected' && (
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  className="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/35 border border-rose-500/40 text-rose-300 font-extrabold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm active:scale-95"
+                >
+                  <span>🚫</span> Cancel Order
+                </button>
+              )}
               {checklistOrderStatus.status === 'delivered' && (
                 <button
                   type="button"
