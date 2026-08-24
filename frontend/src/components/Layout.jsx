@@ -10,7 +10,7 @@ function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -130,48 +130,48 @@ function Layout() {
     switch (user.role) {
       case 'admin':
         return [
-          { to: '/admin/dashboard',     label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
-          { to: '/admin/users',         label: t('nav.admin.users', 'Users'), icon: '👥' },
-          { to: '/admin/models',        label: t('nav.admin.models', 'AI Models'), icon: '🧠' },
-          { to: '/admin/reports',       label: t('nav.admin.reports', 'System Audit'), icon: '📄' },
-          { to: '/admin/shops-map',     label: 'Shops Map', icon: '🗺️' },
+          { to: '/admin/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
+          { to: '/admin/users', label: t('nav.admin.users', 'Users'), icon: '👥' },
+          { to: '/admin/models', label: t('nav.admin.models', 'AI Models'), icon: '🧠' },
+          { to: '/admin/reports', label: t('nav.admin.reports', 'System Audit'), icon: '📄' },
+          { to: '/admin/shops-map', label: 'Shops Map', icon: '🗺️' },
           { to: '/admin/announcements', label: t('nav.admin.announcements', 'Announcements'), icon: '📢' },
-          { to: '/admin/languages',     label: t('nav.admin.languages', 'Languages'), icon: '🌐' },
+          { to: '/admin/languages', label: t('nav.admin.languages', 'Languages'), icon: '🌐' },
         ];
       case 'manager':
       case 'farmer':
         return [
-          { to: '/manager/dashboard',     label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
-          { to: '/manager/inventory',     label: t('nav.inventory', 'Stock Control'), icon: '🍎' },
-          { to: '/manager/orders',        label: 'Orders', icon: '📦' },
-          { to: '/manager/drivers',       label: 'Drivers', icon: '🚚' },
-          { to: '/manager/batch-scan',    label: 'Bulk Scan', icon: '⚡' },
-          { to: '/manager/scans',         label: t('nav.manager.scans', 'Scan Logs'), icon: '📜' },
-          { to: '/manager/waste',         label: t('nav.manager.waste', 'Waste Analytics'), icon: '📉' },
-          { to: '/manager/chatbot',       label: t('nav.manager.chatbot', 'AI Advisor'), icon: '🤖' },
+          { to: '/manager/dashboard', label: t('nav.dashboard', 'Dashboard'), icon: '📊' },
+          { to: '/manager/inventory', label: t('nav.inventory', 'Stock Control'), icon: '🍎' },
+          { to: '/manager/orders', label: 'Orders', icon: '📦' },
+          { to: '/manager/drivers', label: 'Drivers', icon: '🚚' },
+          { to: '/manager/batch-scan', label: 'Bulk Scan', icon: '⚡' },
+          { to: '/manager/scans', label: t('nav.manager.scans', 'Scan Logs'), icon: '📜' },
+          { to: '/manager/waste', label: t('nav.manager.waste', 'Waste Analytics'), icon: '📉' },
+          { to: '/manager/chatbot', label: t('nav.manager.chatbot', 'AI Advisor'), icon: '🤖' },
         ];
       case 'driver':
         return [
-          { to: '/driver/dashboard',     label: 'Dashboard', icon: '📊' },
-          { to: '/driver/deliveries',    label: 'My Deliveries', icon: '🚚' },
-          { to: '/driver/profile',       label: 'Profile & Vehicle', icon: '👤' },
+          { to: '/driver/dashboard', label: 'Dashboard', icon: '📊' },
+          { to: '/driver/deliveries', label: 'My Deliveries', icon: '🚚' },
+          { to: '/driver/profile', label: 'Profile & Vehicle', icon: '👤' },
         ];
       case 'consumer':
       default:
         return [
-          { to: '/home',                   label: t('nav.scan', 'Scan'), icon: '🔍' },
-          { to: '/consumer/pantry',        label: 'My Fridge', icon: '🧊' },
-          { to: '/consumer/chatbot',       label: 'AI Assistant', icon: '🤖' },
-          { to: '/consumer/history',       label: t('nav.consumer.history', 'History'), icon: '📜' },
-          { to: '/consumer/recipes',       label: t('nav.consumer.recipes', 'Recipes'), icon: '🍳' },
+          { to: '/home', label: t('nav.scan', 'Scan'), icon: '🔍' },
+          { to: '/consumer/pantry', label: 'My Fridge', icon: '🧊' },
+          { to: '/consumer/chatbot', label: 'AI Assistant', icon: '🤖' },
+          { to: '/consumer/history', label: t('nav.consumer.history', 'History'), icon: '📜' },
+          { to: '/consumer/recipes', label: t('nav.consumer.recipes', 'Recipes'), icon: '🍳' },
           { to: '/consumer/shopping-list', label: t('nav.consumer.shoppingList', 'Shopping List'), icon: '📋' },
-          { to: '/consumer/settings',      label: t('nav.consumer.settings', 'Profile & Settings'), icon: '👤' },
+          { to: '/consumer/settings', label: t('nav.consumer.settings', 'Profile & Settings'), icon: '👤' },
         ];
     }
   };
 
   const allNavLinks = getNavLinks();
-  
+
   // Clean desktop nav: show all links if <= 6, otherwise top 5 + dropdown for remainder
   const primaryDesktopLinks = allNavLinks.length <= 6 ? allNavLinks : allNavLinks.slice(0, 5);
   const secondaryDesktopLinks = allNavLinks.length <= 6 ? [] : allNavLinks.slice(5);
@@ -213,7 +213,7 @@ function Layout() {
       {/* Header Container */}
       <header className="sticky top-[2px] z-50 glass border-b border-white/10 shadow-2xl backdrop-blur-xl bg-slate-950/85">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          
+
           {/* Left Column: Brand Logo + Divider + Role Badge */}
           <div className="flex items-center gap-3 shrink-0">
             <Link to={getHomePath()} className="flex items-center gap-2.5 group">
@@ -249,11 +249,10 @@ function Layout() {
                 <Link
                   key={to}
                   to={to}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all duration-200 whitespace-nowrap ${
-                    active
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all duration-200 whitespace-nowrap ${active
                       ? `${theme.activeTab} border`
                       : `text-slate-300 hover:text-white border border-transparent ${theme.hoverTab}`
-                  }`}
+                    }`}
                 >
                   <span className="text-xs leading-none">{icon}</span>
                   <span>{label}</span>
@@ -266,11 +265,10 @@ function Layout() {
               <div className="relative" ref={desktopMoreRef}>
                 <button
                   onClick={() => setDesktopMoreOpen((o) => !o)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs transition-all duration-200 whitespace-nowrap ${
-                    desktopMoreIsActive || desktopMoreOpen
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs transition-all duration-200 whitespace-nowrap ${desktopMoreIsActive || desktopMoreOpen
                       ? `${theme.activeTab} border`
                       : `text-slate-300 hover:text-white border border-transparent ${theme.hoverTab}`
-                  }`}
+                    }`}
                 >
                   <span>More</span>
                   <span className="text-[10px] opacity-70">▾</span>
@@ -285,11 +283,10 @@ function Layout() {
                           key={to}
                           to={to}
                           onClick={() => setDesktopMoreOpen(false)}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${
-                            active
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${active
                               ? `${theme.activeTab} border`
                               : 'text-slate-300 hover:text-white hover:bg-white/10'
-                          }`}
+                            }`}
                         >
                           <span className="text-sm">{icon}</span>
                           <span className="font-medium">{label}</span>
@@ -304,7 +301,7 @@ function Layout() {
 
           {/* Right Column: Language Switcher, Notifications, Compact User Profile, Logout */}
           <div className="flex items-center gap-2 shrink-0">
-            
+
             {/* Language Switcher Button */}
             <div className="relative" ref={langRef}>
               <button
@@ -326,11 +323,10 @@ function Layout() {
                     <button
                       key={l.code}
                       onClick={() => handleLanguageChange(l.code)}
-                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                        currentLang.code === l.code
+                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${currentLang.code === l.code
                           ? 'bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30'
                           : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <span className="flex items-center gap-2">
                         <span>{l.flag}</span>
@@ -428,9 +424,8 @@ function Layout() {
               <Link
                 key={to}
                 to={to}
-                className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
-                  active ? 'text-brand-400 font-bold' : 'text-slate-400 hover:text-white'
-                }`}
+                className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${active ? 'text-brand-400 font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
               >
                 <span className="text-xl mb-0.5">{icon}</span>
                 <span className="text-[10px]">{label}</span>
@@ -440,9 +435,8 @@ function Layout() {
           {activeMobileMoreLinks.length > 0 && (
             <button
               onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
-              className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${
-                mobileMoreIsActive || mobileMoreOpen ? 'text-brand-400 font-bold' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex flex-col items-center py-1 px-3 rounded-xl transition-all ${mobileMoreIsActive || mobileMoreOpen ? 'text-brand-400 font-bold' : 'text-slate-400 hover:text-white'
+                }`}
             >
               <span className="text-xl mb-0.5">•••</span>
               <span className="text-[10px]">More</span>
@@ -458,11 +452,10 @@ function Layout() {
                 key={to}
                 to={to}
                 onClick={() => setMobileMoreOpen(false)}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  isActive(to)
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isActive(to)
                     ? 'bg-brand-500/15 text-brand-300 border border-brand-500/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <span>{icon}</span>
                 <span>{label}</span>

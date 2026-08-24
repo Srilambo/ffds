@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import DemoUI from './pages/DemoUI';
 
 // Legacy / shared pages
 import Scan from './pages/Scan';
@@ -71,61 +72,63 @@ export default function AppRoutes() {
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               {/* ── Public ── */}
-              <Route path="/"         element={<Landing />} />
-              <Route path="/login"    element={<Login />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/demo" element={<DemoUI />} />
+              <Route path="/demo-ui" element={<DemoUI />} />
 
               {/* ── Protected (all roles) ── */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/app"  element={<RoleRedirect />} />
+                <Route path="/app" element={<RoleRedirect />} />
                 <Route path="/scan" element={<Scan />} />
 
                 {/* ── Admin routes ── */}
-                <Route path="/admin/dashboard"     element={<AdminDashboardPage />} />
-                <Route path="/admin/users"         element={<AdminUsers />} />
-                <Route path="/admin/models"        element={<AdminModels />} />
-                <Route path="/admin/languages"     element={<AdminLanguages />} />
-                <Route path="/admin/reports"       element={<AdminReports />} />
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/models" element={<AdminModels />} />
+                <Route path="/admin/languages" element={<AdminLanguages />} />
+                <Route path="/admin/reports" element={<AdminReports />} />
                 <Route path="/admin/announcements" element={<AdminAnnouncements />} />
-                <Route path="/admin/shops-map"     element={<AdminShopsMap />} />
-                <Route path="/admin/settings"      element={<AdminSettings />} />
+                <Route path="/admin/shops-map" element={<AdminShopsMap />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
 
                 {/* ── Manager routes ── */}
-                <Route path="/manager/dashboard"    element={<ManagerDashboardPage />} />
-                <Route path="/manager/inventory"    element={<ManagerInventory />} />
-                <Route path="/manager/batch-scan"   element={<BatchScan />} />
-                <Route path="/manager/scan"         element={<Navigate to="/manager/batch-scan" replace />} />
-                <Route path="/manager/scans"        element={<ManagerScanHistory />} />
-                <Route path="/manager/waste"        element={<ManagerWasteAnalytics />} />
-                <Route path="/manager/chatbot"      element={<ManagerChatbot />} />
+                <Route path="/manager/dashboard" element={<ManagerDashboardPage />} />
+                <Route path="/manager/inventory" element={<ManagerInventory />} />
+                <Route path="/manager/batch-scan" element={<BatchScan />} />
+                <Route path="/manager/scan" element={<Navigate to="/manager/batch-scan" replace />} />
+                <Route path="/manager/scans" element={<ManagerScanHistory />} />
+                <Route path="/manager/waste" element={<ManagerWasteAnalytics />} />
+                <Route path="/manager/chatbot" element={<ManagerChatbot />} />
                 <Route path="/manager/shop-profile" element={<ManagerShopProfile />} />
-                <Route path="/manager/orders"       element={<ManagerOrders />} />
-                <Route path="/manager/drivers text"  element={<ManagerDriversWidget />} />
-                <Route path="/manager/drivers"      element={<ManagerDriversWidget />} />
-                <Route path="/manager/settings"     element={<ManagerSettings />} />
+                <Route path="/manager/orders" element={<ManagerOrders />} />
+                <Route path="/manager/drivers text" element={<ManagerDriversWidget />} />
+                <Route path="/manager/drivers" element={<ManagerDriversWidget />} />
+                <Route path="/manager/settings" element={<ManagerSettings />} />
 
                 {/* ── Driver routes ── */}
                 <Route path="/driver/dashboard opacity" element={<DriverDashboardPage />} />
                 <Route path="/driver/dashboard" element={<DriverDashboardPage />} />
                 <Route path="/driver/deliveries" element={<DriverDashboardPage />} />
-                <Route path="/driver/profile shadow"    element={<DriverDashboardPage />} />
-                <Route path="/driver/profile shadow"    element={<DriverDashboardPage />} />
-                <Route path="/driver/profile"    element={<DriverDashboardPage />} />
+                <Route path="/driver/profile shadow" element={<DriverDashboardPage />} />
+                <Route path="/driver/profile shadow" element={<DriverDashboardPage />} />
+                <Route path="/driver/profile" element={<DriverDashboardPage />} />
 
                 {/* ── Backward-compat redirects for legacy farmer routes ── */}
                 <Route path="/farmer/*" element={<Navigate to="/manager/dashboard" replace />} />
 
                 {/* ── Consumer routes ── */}
-                <Route path="/home"                   element={<Scan />} />
-                <Route path="/consumer/pantry"        element={<ConsumerPantry />} />
-                <Route path="/consumer/history"       element={<ConsumerHistory />} />
-                <Route path="/consumer/recipes"       element={<ConsumerRecipes />} />
+                <Route path="/home" element={<Scan />} />
+                <Route path="/consumer/pantry" element={<ConsumerPantry />} />
+                <Route path="/consumer/history" element={<ConsumerHistory />} />
+                <Route path="/consumer/recipes" element={<ConsumerRecipes />} />
                 <Route path="/consumer/shopping-list" element={<ConsumerShoppingList />} />
-                <Route path="/consumer/chatbot"       element={<ConsumerChatbot />} />
+                <Route path="/consumer/chatbot" element={<ConsumerChatbot />} />
                 <Route path="/consumer/ai-assistant flex" element={<ConsumerChatbot />} />
-                <Route path="/consumer/settings flex"      element={<ConsumerSettings />} />
-                <Route path="/consumer/settings"      element={<ConsumerSettings />} />
-                <Route path="/consumer/profile"       element={<ConsumerSettings />} />
+                <Route path="/consumer/settings flex" element={<ConsumerSettings />} />
+                <Route path="/consumer/settings" element={<ConsumerSettings />} />
+                <Route path="/consumer/profile" element={<ConsumerSettings />} />
 
                 {/* ── Legacy shared routes (backward compat) ── */}
                 <Route path="/inventory" element={<Inventory />} />
